@@ -1,3 +1,4 @@
+import { MarkdownProps } from '@lobehub/ui';
 import { ReactNode, memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
@@ -19,84 +20,98 @@ import Tool from './Tool';
 export const AssistantMessageContent = memo<
   ChatMessage & {
     editableContent: ReactNode;
+    markdownProps?: Omit<MarkdownProps, 'className' | 'style' | 'children'>;
   }
->(({ id, tools, content, chunksList, search, imageList, videoList, children, ...props }) => {
-  const editing = useChatStore(chatSelectors.isMessageEditing(id));
-  const generating = useChatStore(chatSelectors.isMessageGenerating(id));
+>(
+  ({
+    id,
+    tools,
+    content,
+    chunksList,
+    search,
+    imageList,
+    videoList,
+    children,
+    markdownProps,
+    ...props
+  }) => {
+    const editing = useChatStore(chatSelectors.isMessageEditing(id));
+    const generating = useChatStore(chatSelectors.isMessageGenerating(id));
 
-  const isToolCallGenerating = generating && (content === LOADING_FLAT || !content) && !!tools;
+    const isToolCallGenerating = generating && (content === LOADING_FLAT || !content) && !!tools;
 
-  const isReasoning = useChatStore(aiChatSelectors.isMessageInReasoning(id));
+    const isReasoning = useChatStore(aiChatSelectors.isMessageInReasoning(id));
 
-  const isIntentUnderstanding = useChatStore(aiChatSelectors.isIntentUnderstanding(id));
+    const isIntentUnderstanding = useChatStore(aiChatSelectors.isIntentUnderstanding(id));
 
-  const showSearch = !!search && !!search.citations?.length;
-  const showImageItems = !!imageList && imageList.length > 0;
-  const showVideoItems = !!videoList && videoList.length > 0;
+    const showSearch = !!search && !!search.citations?.length;
+    const showImageItems = !!imageList && imageList.length > 0;
+    const showVideoItems = !!videoList && videoList.length > 0;
 
-  // remove \n to avoid empty content
-  // refs: https://github.com/lobehub/lobe-chat/pull/6153
-  const showReasoning =
-    (!!props.reasoning && props.reasoning.content?.trim() !== '') ||
-    (!props.reasoning && isReasoning);
+    // remove \n to avoid empty content
+    // refs: https://github.com/lobehub/lobe-chat/pull/6153
+    const showReasoning =
+      (!!props.reasoning && props.reasoning.content?.trim() !== '') ||
+      (!props.reasoning && isReasoning);
 
-  const showFileChunks = !!chunksList && chunksList.length > 0;
+    const showFileChunks = !!chunksList && chunksList.length > 0;
 
-  if (children && children?.length > 0)
-    return (
-      <Flexbox gap={8}>
-        {children.map((item) => (
-          <AssistantBlock key={item.id} {...item} editableContent={props.editableContent} />
-        ))}
-      </Flexbox>
-    );
-
-  return editing ? (
-    <DefaultMessage
-      content={content}
-      id={id}
-      isToolCallGenerating={isToolCallGenerating}
-      {...props}
-    />
-  ) : (
-    <Flexbox gap={8} id={id}>
-      {showSearch && (
-        <SearchGrounding citations={search?.citations} searchQueries={search?.searchQueries} />
-      )}
-      {showFileChunks && <FileChunks data={chunksList} />}
-      {showReasoning && <Reasoning {...props.reasoning} id={id} />}
-      {isIntentUnderstanding ? (
-        <IntentUnderstanding />
-      ) : (
-        content && (
-          <DefaultMessage
-            addIdOnDOM={false}
-            content={content}
-            id={id}
-            isToolCallGenerating={isToolCallGenerating}
-            {...props}
-          />
-        )
-      )}
-      {showImageItems && <ImageFileListViewer items={imageList} />}
-      {showVideoItems && <VideoFileListViewer items={videoList} />}
-      {tools && (
-        <Flexbox gap={8}>
-          {tools.map((toolCall, index) => (
-            <Tool
-              apiName={toolCall.apiName}
-              arguments={toolCall.arguments}
-              id={toolCall.id}
-              identifier={toolCall.identifier}
-              index={index}
-              key={toolCall.id}
-              messageId={id}
-              payload={toolCall}
-              type={toolCall.type}
-            />
+    if (children && children?.length > 0)
+      return (
+        <Flexbox gap={12}>
+          {children.map((item, index) => (
+            <AssistantBlock key={item.id} markdownProps={markdownProps} {...item} index={index} />
           ))}
         </Flexbox>
-      )}
-    </Flexbox>
-  );
-});
+      );
+
+    return editing ? (
+      <DefaultMessage
+        content={content}
+        id={id}
+        isToolCallGenerating={isToolCallGenerating}
+        {...props}
+      />
+    ) : (
+      <Flexbox gap={8} id={id}>
+        {showSearch && (
+          <SearchGrounding citations={search?.citations} searchQueries={search?.searchQueries} />
+        )}
+        {showFileChunks && <FileChunks data={chunksList} />}
+        {showReasoning && <Reasoning {...props.reasoning} id={id} />}
+        {isIntentUnderstanding ? (
+          <IntentUnderstanding />
+        ) : (
+          content && (
+            <DefaultMessage
+              addIdOnDOM={false}
+              content={content}
+              id={id}
+              isToolCallGenerating={isToolCallGenerating}
+              {...props}
+            />
+          )
+        )}
+        {showImageItems && <ImageFileListViewer items={imageList} />}
+        {showVideoItems && <VideoFileListViewer items={videoList} />}
+        {tools && (
+          <Flexbox gap={8}>
+            {tools.map((toolCall, index) => (
+              <Tool
+                apiName={toolCall.apiName}
+                arguments={toolCall.arguments}
+                id={toolCall.id}
+                identifier={toolCall.identifier}
+                index={index}
+                key={toolCall.id}
+                messageId={id}
+                payload={toolCall}
+                type={toolCall.type}
+              />
+            ))}
+          </Flexbox>
+        )}
+      </Flexbox>
+    );
+  },
+);

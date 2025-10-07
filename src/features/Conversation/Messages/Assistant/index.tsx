@@ -198,11 +198,17 @@ const AssistantMessage = memo<AssistantMessageProps>((props) => {
 
   const renderMessage = useCallback(
     (editableContent: ReactNode) => (
-      <AssistantMessageContent {...props} editableContent={editableContent} />
+      <AssistantMessageContent
+        {...props}
+        editableContent={editableContent}
+        markdownProps={markdownProps}
+      />
     ),
-    [props],
+    [markdownProps, props],
   );
+
   const errorMessage = <ErrorMessageExtra data={props} />;
+
   return (
     <Flexbox
       className={styles.container}

@@ -1,26 +1,23 @@
-import { Markdown } from '@lobehub/ui';
-import { ReactNode, memo } from 'react';
+import { Markdown, MarkdownProps } from '@lobehub/ui';
+import { memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
-import { LOADING_FLAT } from '@/const/message';
 import ImageFileListViewer from '@/features/Conversation/Messages/User/ImageFileListViewer';
-import { useChatStore } from '@/store/chat';
-import { chatSelectors } from '@/store/chat/selectors';
+import { normalizeThinkTags, processWithArtifact } from '@/features/Conversation/utils';
 import { AssistantContentBlock } from '@/types/message';
 
-import { DefaultMessage } from '../Default';
 import Tool from './Tool';
 
 interface AssistantBlockProps extends AssistantContentBlock {
-  editableContent: ReactNode;
+  index: number;
+  markdownProps?: Omit<MarkdownProps, 'className' | 'style' | 'children'>;
 }
 export const AssistantBlock = memo<AssistantBlockProps>(
-  ({ id, tools, content, imageList, ...props }) => {
-    const editing = useChatStore(chatSelectors.isMessageEditing(id));
-    const generating = useChatStore(chatSelectors.isMessageGenerating(id));
+  ({ id, tools, content, imageList, markdownProps }) => {
+    // const generating = useChatStore(chatSelectors.isMessageGenerating(id));
 
-    console.log(id, content, props);
-    const isToolCallGenerating = generating && (content === LOADING_FLAT || !content) && !!tools;
+    // const isToolCallGenerating = generating && (content === LOADING_FLAT || !content) && !!tools;
+    const message = normalizeThinkTags(processWithArtifact(content));
 
     const showImageItems = !!imageList && imageList.length > 0;
 
@@ -43,19 +40,11 @@ export const AssistantBlock = memo<AssistantBlockProps>(
         </Flexbox>
       );
 
-    if (editing)
-      return (
-        <DefaultMessage
-          content={content}
-          id={id}
-          isToolCallGenerating={isToolCallGenerating}
-          {...(props as any)}
-        />
-      );
-
     return (
       <Flexbox gap={8} id={id}>
-        <Markdown variant={'chat'}>{content}</Markdown>
+        <Markdown {...markdownProps} variant={'chat'}>
+          {message}
+        </Markdown>
         {showImageItems && <ImageFileListViewer items={imageList} />}
       </Flexbox>
     );
