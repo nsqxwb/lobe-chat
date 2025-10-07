@@ -1,21 +1,22 @@
+import { LOADING_FLAT } from '@lobechat/const';
+import { ChatMessage } from '@lobechat/types';
 import { MarkdownProps } from '@lobehub/ui';
 import { ReactNode, memo } from 'react';
 import { Flexbox } from 'react-layout-kit';
 
-import { LOADING_FLAT } from '@/const/message';
-import { AssistantBlock } from '@/features/Conversation/Messages/Assistant/Block';
-import ImageFileListViewer from '@/features/Conversation/Messages/User/ImageFileListViewer';
-import VideoFileListViewer from '@/features/Conversation/Messages/User/VideoFileListViewer';
 import { useChatStore } from '@/store/chat';
 import { aiChatSelectors, chatSelectors } from '@/store/chat/selectors';
-import { ChatMessage } from '@/types/message';
 
 import { DefaultMessage } from '../Default';
+import ImageFileListViewer from '../User/ImageFileListViewer';
+import VideoFileListViewer from '../User/VideoFileListViewer';
+import { AssistantBlock } from './Block';
 import FileChunks from './FileChunks';
 import IntentUnderstanding from './IntentUnderstanding';
 import Reasoning from './Reasoning';
 import SearchGrounding from './SearchGrounding';
 import Tool from './Tool';
+import { getBlockPosition } from './utils';
 
 export const AssistantMessageContent = memo<
   ChatMessage & {
@@ -56,14 +57,21 @@ export const AssistantMessageContent = memo<
 
     const showFileChunks = !!chunksList && chunksList.length > 0;
 
-    if (children && children?.length > 0)
+    if (children && children?.length > 0) {
       return (
-        <Flexbox gap={12}>
+        <Flexbox gap={0}>
           {children.map((item, index) => (
-            <AssistantBlock key={item.id} markdownProps={markdownProps} {...item} index={index} />
+            <AssistantBlock
+              blockPosition={getBlockPosition(children, index)}
+              index={index}
+              key={item.id}
+              markdownProps={markdownProps}
+              {...item}
+            />
           ))}
         </Flexbox>
       );
+    }
 
     return editing ? (
       <DefaultMessage
