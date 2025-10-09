@@ -9,8 +9,6 @@ import { normalizeThinkTags, processWithArtifact } from '../../utils/markdown';
 import ImageFileListViewer from '../User/ImageFileListViewer';
 import Tool from './Tool';
 
-const LINE_LENGTH = 10;
-
 const useStyles = createStyles(({ css, token }) => {
   const lineBlock = css`
     content: '';
@@ -20,21 +18,21 @@ const useStyles = createStyles(({ css, token }) => {
 
     width: 1px;
 
-    background: ${token.colorBorder};
+    background: ${token.colorBorderSecondary};
   `;
 
   return {
     blockEnd: css`
-      padding-block: 0 8px;
+      padding-block: 0 12px;
       padding-inline: 12px;
-      border: 1px solid ${token.colorBorder};
+      border: 1px solid ${token.colorBorderSecondary};
       border-block-start: 0;
       border-end-start-radius: 8px;
       border-end-end-radius: 8px;
     `,
     blockInMiddle: css`
       padding-inline: 12px;
-      border: 1px solid ${token.colorBorder};
+      border: 1px solid ${token.colorBorderSecondary};
       border-block-start: 0;
       border-block-end: 0;
       border-radius: 0;
@@ -42,16 +40,29 @@ const useStyles = createStyles(({ css, token }) => {
     blockStandalone: css`
       padding-block: 6px;
       padding-inline: 12px;
-      border: 1px solid ${token.colorBorder};
+      border: 1px solid ${token.colorBorderSecondary};
       border-radius: 8px;
     `,
     blockStart: css`
-      padding-block: 8px 0;
+      padding-block: 12px 0;
       padding-inline: 12px;
-      border: 1px solid ${token.colorBorder};
+      border: 1px solid ${token.colorBorderSecondary};
       border-block-end: 0;
       border-start-start-radius: 8px;
       border-start-end-radius: 8px;
+    `,
+    headerLineBottom: css`
+      &::after {
+        ${lineBlock};
+        inset-block: 14px 0;
+      }
+    `,
+    headerLineTop: css`
+      &::before {
+        ${lineBlock};
+        inset-block-start: 0;
+        height: 17px;
+      }
     `,
     status: css`
       position: relative;
@@ -62,35 +73,12 @@ const useStyles = createStyles(({ css, token }) => {
       align-items: center;
       justify-content: center;
 
-      width: 8px;
-      height: 8px;
-      margin-block-start: 8px;
+      width: 6px;
+      height: 6px;
+      margin-block-start: 10px;
       border-radius: 50%;
 
-      background-color: ${token.colorTextDescription};
-    `,
-    statusEnd: css`
-      &::before {
-        ${lineBlock};
-        inset-block-start: -${LINE_LENGTH}px;
-      }
-    `,
-    statusMiddle: css`
-      &::before {
-        ${lineBlock};
-        inset-block-start: -${LINE_LENGTH}px;
-      }
-
-      &::after {
-        ${lineBlock};
-        inset-block-end: -${LINE_LENGTH}px;
-      }
-    `,
-    statusStart: css`
-      &::after {
-        ${lineBlock};
-        inset-block: 12px 0;
-      }
+      background-color: ${token.colorTextQuaternary};
     `,
     toolContent: css`
       flex: 1;
@@ -99,7 +87,8 @@ const useStyles = createStyles(({ css, token }) => {
     toolHeader: css`
       position: relative;
       display: flex;
-      gap: 4px;
+      gap: 6px;
+      padding-block: 4px;
     `,
     toolHeaderFirst: css`
       padding-block-start: 0;
@@ -126,8 +115,6 @@ export const AssistantBlock = memo<AssistantBlockProps>(
     const showImageItems = !!imageList && imageList.length > 0;
 
     if (tools && tools.length > 0) {
-      const toolsCount = tools.length;
-
       return (
         <Flexbox
           className={cx(
@@ -139,65 +126,33 @@ export const AssistantBlock = memo<AssistantBlockProps>(
           gap={0}
         >
           {tools.map((toolCall, index) => {
-            const isFirstTool = index === 0;
-            const isLastTool = index === toolsCount - 1;
-            const hasMultipleTools = toolsCount > 1;
+            const isFirstToolInBlock = blockPosition === 'start';
+            const isLastToolInBlock = blockPosition === 'end';
 
             // 根据 blockPosition 判断是否需要连接到其他 block
-            const needConnectToPrevBlock =
-              blockPosition === 'middle' || blockPosition === 'end';
-            const needConnectToNextBlock =
-              blockPosition === 'middle' || blockPosition === 'start';
+            const needConnectToPrevBlock = blockPosition === 'middle' || blockPosition === 'end';
+            const needConnectToNextBlock = blockPosition === 'middle' || blockPosition === 'start';
 
-            let statusClassName = styles.status;
-            let headerClassName = styles.toolHeader;
+            // header 需要上方连线：不是第一个 tool，或者是第一个但需要连接到上一个 block
+            const needTopLine = !isFirstToolInBlock || needConnectToPrevBlock;
 
-            // 第一个 tool
-            if (isFirstTool) {
-              headerClassName = cx(styles.toolHeader, styles.toolHeaderFirst);
+            // header 需要下方连线：不是最后一个 tool，或者是最后一个但需要连接到下一个 block
+            const needBottomLine = !isLastToolInBlock || needConnectToNextBlock;
 
-              if (needConnectToPrevBlock) {
-                // 需要连接到上一个 block
-                if (hasMultipleTools || needConnectToNextBlock) {
-                  // 有下一个 tool 或需要连接到下一个 block，需要上下连接线
-                  statusClassName = cx(styles.status, styles.statusMiddle);
-                } else {
-                  // 只有一个 tool 且不需要连接到下一个 block，只需要上方连接线
-                  statusClassName = cx(styles.status, styles.statusEnd);
-                }
-              } else {
-                // 不需要连接到上一个 block
-                if (hasMultipleTools) {
-                  // 有下一个 tool，需要下方连接线
-                  statusClassName = cx(styles.status, styles.statusStart);
-                } else {
-                  // 只有一个 tool，不需要任何连接线
-                  statusClassName = styles.status;
-                }
-              }
-            }
-            // 最后一个 tool（且不是第一个）
-            else if (isLastTool) {
-              headerClassName = cx(styles.toolHeader, styles.toolHeaderLast);
+            console.log(toolCall.apiName, 'isLastToolInBlock:', isLastToolInBlock, needBottomLine);
 
-              if (needConnectToNextBlock) {
-                // 需要连接到下一个 block，需要上下连接线
-                statusClassName = cx(styles.status, styles.statusMiddle);
-              } else {
-                // 不需要连接到下一个 block，只需要上方连接线
-                statusClassName = cx(styles.status, styles.statusEnd);
-              }
-            }
-            // 中间的 tool
-            else {
-              headerClassName = styles.toolHeader;
-              statusClassName = cx(styles.status, styles.statusMiddle);
-            }
+            const headerClassName = cx(
+              styles.toolHeader,
+              isFirstToolInBlock && styles.toolHeaderFirst,
+              isLastToolInBlock && styles.toolHeaderLast,
+              needTopLine && styles.headerLineTop,
+              needBottomLine && styles.headerLineBottom,
+            );
 
             return (
               <Flexbox key={toolCall.id}>
                 <div className={headerClassName}>
-                  <div className={statusClassName} />
+                  <div className={styles.status} />
                   <div className={styles.toolContent}>
                     <Tool
                       apiName={toolCall.apiName}

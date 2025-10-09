@@ -246,6 +246,7 @@ const AssistantMessage = memo<AssistantMessageProps>((props) => {
           data-layout={'vertical'} // 添加数据属性以方便样式选择
           direction={'vertical'}
           gap={8}
+          width={'100%'}
         >
           <Flexbox style={{ flex: 1, maxWidth: '100%' }}>
             {error && (message === LOADING_FLAT || !message) ? (
