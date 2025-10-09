@@ -14,7 +14,7 @@ const useStyles = createStyles(({ css, token }) => {
     content: '';
 
     position: absolute;
-    inset-inline-start: 3.5px;
+    inset-inline-start: 3px;
 
     width: 1px;
 
@@ -138,8 +138,6 @@ export const AssistantBlock = memo<AssistantBlockProps>(
 
             // header 需要下方连线：不是最后一个 tool，或者是最后一个但需要连接到下一个 block
             const needBottomLine = !isLastToolInBlock || needConnectToNextBlock;
-
-            console.log(toolCall.apiName, 'isLastToolInBlock:', isLastToolInBlock, needBottomLine);
 
             const headerClassName = cx(
               styles.toolHeader,
