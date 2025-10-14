@@ -21,6 +21,7 @@ const CreateAgentSessionSchema = z.object({
     provider: z.string(),
   }),
   threadId: z.string().optional().nullable(),
+  toolManifestMap: z.record(z.string(), z.any()).default({}),
   tools: z.array(z.any()).optional(),
   topicId: z.string().optional().nullable(),
   userId: z.string().optional(),
@@ -89,6 +90,7 @@ export const aiAgentRouter = router({
         threadId,
         topicId,
         tools,
+        toolManifestMap,
       } = input;
       log('input: %O', input);
 
@@ -130,6 +132,7 @@ export const aiAgentRouter = router({
         initialMessages: messages,
         modelRuntimeConfig,
         sessionId: runtimeSessionId,
+        toolManifestMap,
         tools,
         userId: ctx.userId,
       });

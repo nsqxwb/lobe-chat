@@ -1,6 +1,8 @@
+import { LobeToolManifest } from '@lobechat/context-engine';
 import { ChatToolPayload, ClientSecretPayload } from '@lobechat/types';
 
 export interface ToolExecutionContext {
+  toolManifestMap: Record<string, LobeToolManifest>;
   userId?: string;
   userPayload?: ClientSecretPayload;
 }

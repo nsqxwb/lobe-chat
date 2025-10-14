@@ -46,22 +46,16 @@ export class ToolExecutionService {
           data = await this.builtinToolsExecutor.execute(payload, context);
           break;
         }
-        case 'plugin':
-        case 'customPlugin': {
-          const result = await this.pluginGatewayService.execute(payload, context);
-          data = {
-            content: (result as any).content,
-            error: (result as any).error,
-            success: result.success,
-          };
-          break;
-        }
+
         case 'mcp': {
           data = await this.executeMCPTool(payload, context);
           break;
         }
+
         default: {
-          throw new Error(`Unknown tool type for tool execution: ${typeStr}`);
+          data = await this.pluginGatewayService.execute(payload, context);
+
+          break;
         }
       }
 

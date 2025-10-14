@@ -16,7 +16,14 @@ import { useSend } from '../useSend';
 import MessageFromUrl from './MessageFromUrl';
 import { useSendMenuItems } from './useSendMenuItems';
 
-const leftAgentActions: ActionKeys[] = ['agentMode', 'model', 'mainToken', 'clear'];
+const leftAgentActions: ActionKeys[] = [
+  'agentMode',
+  'model',
+  'search',
+  'tools',
+  'mainToken',
+  'clear',
+];
 
 const leftActions: ActionKeys[] = [
   'agentMode',

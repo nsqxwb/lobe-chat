@@ -336,6 +336,7 @@ export const createRuntimeExecutors = (
       // Execute tool using ToolExecutionService
       log(`[${sessionLogId}] Executing tool ${toolName} ...`);
       const executionResult = await toolExecutionService.executeTool(chatToolPayload, {
+        toolManifestMap: state.toolManifestMap,
         userId: ctx.userId,
         userPayload: ctx.userPayload,
       });

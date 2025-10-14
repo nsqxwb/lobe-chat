@@ -81,6 +81,7 @@ export class AgentRuntimeService {
       tools,
       initialMessages = [],
       appContext,
+      toolManifestMap,
     } = params;
 
     try {
@@ -102,6 +103,7 @@ export class AgentRuntimeService {
         sessionId,
         status: 'idle',
         stepCount: 0,
+        toolManifestMap,
         tools,
       } as Partial<AgentState>;
 

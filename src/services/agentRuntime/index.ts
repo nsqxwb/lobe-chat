@@ -64,6 +64,7 @@ class AgentRuntimeService {
       },
       messages: llmMessages,
       modelRuntimeConfig,
+      toolManifestMap: Object.fromEntries(toolsEngine.getAllPluginManifests().entries()),
       tools,
     });
   };

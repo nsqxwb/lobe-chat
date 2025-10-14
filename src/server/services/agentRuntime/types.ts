@@ -1,4 +1,5 @@
 import { AgentRuntimeContext } from '@lobechat/agent-runtime';
+import { LobeToolManifest } from '@lobechat/context-engine/src/tools/types';
 
 export interface AgentExecutionParams {
   approvedToolCall?: any;
@@ -28,6 +29,7 @@ export interface SessionCreationParams {
   initialMessages?: any[];
   modelRuntimeConfig?: any;
   sessionId: string;
+  toolManifestMap: Record<string, LobeToolManifest>;
   tools?: any[];
   userId?: string;
 }

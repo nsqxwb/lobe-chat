@@ -1,6 +1,7 @@
 import { ChatToolPayload } from '@lobechat/types';
 import { safeParseJSON } from '@lobechat/utils';
-import { Gateway } from '@lobehub/chat-plugins-gateway';
+import { PluginRequestPayload } from '@lobehub/chat-plugin-sdk';
+import { Gateway, GatewaySuccessResponse } from '@lobehub/chat-plugins-gateway';
 import debug from 'debug';
 
 import { parserPluginSettings } from '@/app/(backend)/webapi/plugin/gateway/settings';
@@ -29,20 +30,25 @@ export class PluginGatewayService {
 
     try {
       // Construct plugin request
-      const requestBody = {
+      const requestBody: PluginRequestPayload = {
         apiName,
         arguments: JSON.stringify(args),
         identifier,
+        manifest: context.toolManifestMap[identifier] as any,
       };
 
       const response = await this.gateway.execute(requestBody);
 
       log('Plugin execution result: %O', response);
 
-      return response;
+      return {
+        content: (response as GatewaySuccessResponse).data,
+        success: true,
+      };
     } catch (error) {
       console.error('Error executing plugin %s:%s: %O', identifier, apiName, error);
       return {
+        content: (error as Error).message,
         error: {
           message: (error as Error).message,
         },
