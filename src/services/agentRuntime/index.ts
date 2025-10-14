@@ -53,6 +53,10 @@ class AgentRuntimeService {
       tools: enabledToolIds,
     });
 
+    const toolManifestMap = Object.fromEntries(
+      toolsEngine.getEnabledPluginManifests(enabledToolIds).entries(),
+    );
+
     return await lambdaClient.aiAgent.createSession.mutate({
       ...data,
       agentConfig: {
@@ -64,7 +68,7 @@ class AgentRuntimeService {
       },
       messages: llmMessages,
       modelRuntimeConfig,
-      toolManifestMap: Object.fromEntries(toolsEngine.getAllPluginManifests().entries()),
+      toolManifestMap,
       tools,
     });
   };

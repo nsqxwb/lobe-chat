@@ -176,7 +176,7 @@ export const createRuntimeExecutors = (
             }
           },
           onToolsCalling: async ({ toolsCalling: raw }) => {
-            const payload = new ToolNameResolver().resolve(raw, {});
+            const payload = new ToolNameResolver().resolve(raw, state.toolManifestMap);
             // log(`[${sessionLogId}][toolsCalling]`, payload);
             toolsCalling = payload;
             tool_calls = raw;

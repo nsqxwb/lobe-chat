@@ -85,34 +85,64 @@ export class ToolExecutionService {
     payload: ChatToolPayload,
     context: ToolExecutionContext,
   ): Promise<ToolExecutionResult> {
-    // TODO: Need to determine where to get MCP client params from
-    // For now, we assume it's stored in the tool's metadata or needs to be fetched
-    // This is a placeholder implementation
-    log(
-      'MCP tool execution not yet fully implemented for: %s:%s',
-      payload.identifier,
-      payload.apiName,
-      context,
-    );
+    const { identifier, apiName, arguments: args } = payload;
 
-    // For now, return an error indicating MCP tools need additional context
-    return {
-      content: 'MCP tool execution requires client connection parameters',
-      error: {
-        code: 'MCP_NOT_IMPLEMENTED',
-        message: 'MCP tool execution requires client connection parameters',
-      },
-      success: false,
-    };
+    log('Executing MCP tool: %s:%s', identifier, apiName);
 
-    // Future implementation would look like:
-    // const mcpParams = await this.getMCPParams(payload.identifier);
-    // const result = await this.mcpService.callTool(
-    //   mcpParams,
-    //   payload.apiName,
-    //   payload.arguments
-    // );
-    // return { success: true, data: result };
+    // Get the manifest from context
+    const manifest = context.toolManifestMap[identifier];
+    if (!manifest) {
+      log('Manifest not found for MCP tool: %s', identifier);
+      return {
+        content: `Manifest not found for tool: ${identifier}`,
+        error: {
+          code: 'MANIFEST_NOT_FOUND',
+          message: `Manifest not found for tool: ${identifier}`,
+        },
+        success: false,
+      };
+    }
+
+    // Extract MCP params from manifest (stored in customParams.mcp in LobeTool)
+    const mcpParams = (manifest as any).mcpParams;
+    if (!mcpParams) {
+      log('MCP configuration not found in manifest for: %s ', identifier);
+      return {
+        content: `MCP configuration not found for tool: ${identifier}, please tell user TRY TO REINSTALL THE MCP PLUGIN`,
+        error: {
+          code: 'MCP_CONFIG_NOT_FOUND',
+          message: `MCP configuration not found for tool: ${identifier}`,
+        },
+        success: false,
+      };
+    }
+
+    // Construct MCPClientParams from the mcp config
+
+    log('Calling MCP service with params for: %s:%s', identifier, apiName);
+
+    try {
+      // Call the MCP service
+      const result = await this.mcpService.callTool(mcpParams, apiName, args);
+
+      log('MCP tool execution successful for: %s:%s', identifier, apiName);
+
+      return {
+        content: typeof result === 'string' ? result : JSON.stringify(result),
+        state: typeof result === 'object' ? result : undefined,
+        success: true,
+      };
+    } catch (error) {
+      log('MCP tool execution failed for %s:%s: %O', identifier, apiName, error);
+      return {
+        content: (error as Error).message,
+        error: {
+          code: 'MCP_EXECUTION_ERROR',
+          message: (error as Error).message,
+        },
+        success: false,
+      };
+    }
   }
 }
 
