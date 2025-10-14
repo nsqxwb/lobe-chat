@@ -135,16 +135,6 @@ export type AgentStreamEventType =
   | 'stream_error';
 
 /**
- * Standard agent stream event structure
- */
-export interface AgentStreamEvent {
-  data?: any;
-  sessionId: string;
-  timestamp: number;
-  type: AgentStreamEventType;
-}
-
-/**
  * Creates SSE headers for agent streaming
  */
 // eslint-disable-next-line no-undef

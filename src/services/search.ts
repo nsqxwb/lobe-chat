@@ -1,7 +1,6 @@
 import { SearchQuery } from '@lobechat/types';
 
 import { toolsClient } from '@/libs/trpc/client';
-import { SearchQuery } from '@/types/tool';
 
 class SearchService {
   search(query: string, optionalParams?: object) {

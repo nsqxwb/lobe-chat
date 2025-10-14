@@ -4,13 +4,13 @@ import {
   CallLLMPayload,
   InstructionExecutor,
 } from '@lobechat/agent-runtime';
+import { ToolNameResolver } from '@lobechat/context-engine';
 import { consumeStreamUntilDone } from '@lobechat/model-runtime';
 import { ChatToolPayload, ClientSecretPayload, MessageToolCall } from '@lobechat/types';
 import debug from 'debug';
 
 import { MessageModel } from '@/database/models/message';
 import { GeneralAgentLLMResultPayload } from '@/server/modules/AgentRuntime/GeneralAgent';
-import { transformerToolsCalling } from '@/server/modules/AgentRuntime/transformerToolsCalling';
 import { initModelRuntimeWithUserPayload } from '@/server/modules/ModelRuntime';
 import { ToolExecutionService } from '@/server/services/toolExecution';
 
@@ -176,7 +176,7 @@ export const createRuntimeExecutors = (
             }
           },
           onToolsCalling: async ({ toolsCalling: raw }) => {
-            const payload = transformerToolsCalling(raw, {});
+            const payload = new ToolNameResolver().resolve(raw, {});
             // log(`[${sessionLogId}][toolsCalling]`, payload);
             toolsCalling = payload;
             tool_calls = raw;
