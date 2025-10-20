@@ -91,9 +91,6 @@ export const userMemoriesPreferences = pgTable(
       .$defaultFn(() => idGenerator('memory'))
       .primaryKey(),
 
-    contextId: varchar255('context_id').references(() => userMemoriesContexts.id, {
-      onDelete: 'cascade',
-    }),
     userMemoryId: varchar255('user_memory_id').references(() => userMemories.id, {
       onDelete: 'cascade',
     }),
@@ -123,10 +120,8 @@ export const userMemoriesPreferences = pgTable(
 export const userMemoriesIdentities = pgTable(
   'user_memories_identities',
   {
-    currentFocuses: text('current_focuses'),
     description: text('description'),
     descriptionVector: vector('description_vector', { dimensions: 1024 }),
-    experience: text('experience'),
     extractedLabels: jsonb('extracted_labels'),
     id: varchar255('id')
       .$defaultFn(() => idGenerator('memory'))
@@ -138,6 +133,8 @@ export const userMemoriesIdentities = pgTable(
 
     type: varchar255('type'),
     userMemoryId: text('user_memory_id').references(() => userMemories.id, { onDelete: 'cascade' }),
+
+    episodicDate: timestamptz('episodic_date'),
 
     ...timestamps,
   },

@@ -1,5 +1,5 @@
 import { Icon } from '@lobehub/ui';
-import { ChartColumnBigIcon, KeyIcon, ShieldCheck, UserCircle } from 'lucide-react';
+import { Brain, ChartColumnBigIcon, KeyIcon, ShieldCheck, UserCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 
@@ -42,6 +42,15 @@ export const useCategory = () => {
       label: (
         <Link href={'/profile/stats'} onClick={(e) => e.preventDefault()}>
           {t('tab.stats')}
+        </Link>
+      ),
+    },
+    {
+      icon: <Icon icon={Brain} />,
+      key: ProfileTabs.Memory,
+      label: (
+        <Link href={'/profile/memory'} onClick={(e) => e.preventDefault()}>
+          {t('tab.memory')}
         </Link>
       ),
     },
