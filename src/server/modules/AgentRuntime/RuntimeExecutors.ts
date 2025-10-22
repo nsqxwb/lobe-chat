@@ -376,7 +376,7 @@ export const createRuntimeExecutors = (
         type: payload.type as any, // CallingToolPayload.type is compatible
       };
 
-      const toolName = `(${chatToolPayload.identifier}:${chatToolPayload.apiName})`;
+      const toolName = `${chatToolPayload.identifier}/${chatToolPayload.apiName}`;
       // Execute tool using ToolExecutionService
       log(`[${sessionLogId}] Executing tool ${toolName} ...`);
       const executionResult = await toolExecutionService.executeTool(chatToolPayload, {
@@ -432,6 +432,28 @@ export const createRuntimeExecutors = (
 
       events.push({ id: payload.id, result: executionResult, type: 'tool_result' });
 
+      // 使用 UsageCounter 统一累加 tool usage
+      const { usage, cost } = UsageCounter.accumulateTool({
+        cost: newState.cost,
+        executionTime,
+        success: isSuccess,
+        toolCost: 0, // 默认工具没有 cost
+        toolName,
+        usage: newState.usage,
+      });
+
+      newState.usage = usage;
+      if (cost) newState.cost = cost;
+
+      // 日志输出 usage
+      log(
+        `[${sessionLogId}][tool usage] %s: calls=%d, time=%dms, success=%s`,
+        toolName,
+        newState.usage.tools.totalCalls,
+        executionTime,
+        isSuccess,
+      );
+
       log('[%s:%d] Tool execution completed', sessionId, stepIndex);
 
       return {
@@ -452,6 +474,11 @@ export const createRuntimeExecutors = (
             sessionId: state.sessionId,
             status: 'running',
             stepCount: state.stepCount + 1,
+          },
+          stepUsage: {
+            executionTime,
+            success: isSuccess,
+            toolName,
           },
         },
       };
@@ -489,7 +516,7 @@ export const createRuntimeExecutors = (
     const { reason, reasonDetail } = instruction as Extract<AgentInstruction, { type: 'finish' }>;
     const { sessionId, stepIndex, streamManager } = ctx;
 
-    log('Finishing execution for session %s:%d (%s)', sessionId, stepIndex, reason);
+    log('[%s:%d] Finishing execution: (%s)', sessionId, stepIndex, reason);
 
     // 发布执行完成事件
     await streamManager.publishStreamEvent(sessionId, {
