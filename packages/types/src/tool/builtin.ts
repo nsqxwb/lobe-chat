@@ -1,8 +1,18 @@
 import { LobeChatPluginApi, Meta } from '@lobehub/chat-plugin-sdk';
 import { ReactNode } from 'react';
 
+import type { HumanInterventionPolicy } from './intervention';
+
 export interface BuiltinToolManifest {
   api: LobeChatPluginApi[];
+
+  /**
+   * Tool-level default human intervention policy
+   * This policy applies to all APIs that don't specify their own policy
+   *
+   * @default 'never'
+   */
+  humanIntervention?: HumanInterventionPolicy;
 
   /**
    * Plugin name

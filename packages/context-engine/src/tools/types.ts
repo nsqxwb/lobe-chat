@@ -1,5 +1,20 @@
+import type { HumanInterventionConfig } from '@lobechat/types';
+
 export interface LobeChatPluginApi {
   description: string;
+  /**
+   * Human intervention configuration
+   * Controls when and how the tool requires human approval/selection
+   *
+   * Can be either:
+   * - Simple: A policy string ('never', 'always', 'first')
+   * - Complex: Array of rules for parameter-level control
+   *
+   * Examples:
+   * - 'always' - always require intervention
+   * - [{ match: { command: "git add:*" }, policy: "never" }, { policy: "always" }]
+   */
+  humanIntervention?: HumanInterventionConfig;
   name: string;
   parameters: Record<string, any>;
   url?: string;
