@@ -29,15 +29,19 @@ const HomePage = memo<{ mobile?: boolean }>(() => {
 
   return (
     <>
-      <Title more={t('home.more')} moreLink={'/discover/assistant'}>
-        {t('home.featuredAssistants')}
-      </Title>
-      <AssistantList data={assistantList.items} rows={4} />
+      <div data-testid="featured-assistants">
+        <Title more={t('home.more')} moreLink={'/discover/assistant'}>
+          {t('home.featuredAssistants')}
+        </Title>
+        <AssistantList data={assistantList.items} rows={4} />
+      </div>
       <div />
-      <Title more={t('home.more')} moreLink={'/discover/mcp'}>
-        {t('home.featuredTools')}
-      </Title>
-      <McpList data={mcpList.items} rows={4} />
+      <div data-testid="featured-mcp">
+        <Title more={t('home.more')} moreLink={'/discover/mcp'}>
+          {t('home.featuredTools')}
+        </Title>
+        <McpList data={mcpList.items} rows={4} />
+      </div>
     </>
   );
 });
