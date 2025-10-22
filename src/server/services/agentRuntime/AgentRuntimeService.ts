@@ -130,9 +130,9 @@ export class AgentRuntimeService {
           stepIndex: 0,
         });
         autoStarted = true;
-        log('Scheduled first step for session %s (messageId: %s)', sessionId, messageId);
+        log('[%s]Scheduled first step (messageId: %s)', sessionId, messageId);
       } else {
-        log('Session %s created without auto-start', sessionId);
+        log('[%s]created session without auto-start', sessionId);
       }
 
       return { autoStarted, messageId, sessionId, success: true };

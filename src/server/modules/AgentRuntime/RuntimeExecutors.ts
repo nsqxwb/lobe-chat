@@ -19,6 +19,12 @@ import { StreamEventManager } from './StreamEventManager';
 
 const log = debug('lobe-server:agent-runtime:streaming-executors');
 
+// Tool pricing configuration (USD per call)
+const TOOL_PRICING: Record<string, number> = {
+  'lobe-web-browsing/craw': 0.002,
+  'lobe-web-browsing/search': 0.001,
+};
+
 export interface RuntimeExecutorContext {
   fileService?: any;
   messageModel: MessageModel;
@@ -157,7 +163,6 @@ export const createRuntimeExecutors = (
             // 捕获 usage (可能包含 cost，也可能不包含)
             if (data.usage) {
               currentStepUsage = data.usage;
-              log('usage: %O', data.usage);
             }
           },
           onText: async (text) => {
@@ -240,13 +245,7 @@ export const createRuntimeExecutors = (
 
       // 日志输出 usage
       if (currentStepUsage) {
-        log(
-          `[${sessionLogId}][usage] input: %d, output: %d, total: %d, cost: $%s`,
-          currentStepUsage.totalInputTokens ?? 0,
-          currentStepUsage.totalOutputTokens ?? 0,
-          currentStepUsage.totalTokens ?? 0,
-          currentStepUsage.cost ? currentStepUsage.cost.toFixed(6) : 'N/A',
-        );
+        log(`[${sessionLogId}][usage] %O`, currentStepUsage);
       }
 
       // 添加一个完整的 llm_stream 事件（包含所有流式块）
@@ -432,12 +431,15 @@ export const createRuntimeExecutors = (
 
       events.push({ id: payload.id, result: executionResult, type: 'tool_result' });
 
+      // 获取工具单价
+      const toolCost = TOOL_PRICING[toolName] || 0;
+
       // 使用 UsageCounter 统一累加 tool usage
       const { usage, cost } = UsageCounter.accumulateTool({
         cost: newState.cost,
         executionTime,
         success: isSuccess,
-        toolCost: 0, // 默认工具没有 cost
+        toolCost,
         toolName,
         usage: newState.usage,
       });
@@ -445,13 +447,17 @@ export const createRuntimeExecutors = (
       newState.usage = usage;
       if (cost) newState.cost = cost;
 
+      // 查找当前工具的统计信息
+      const currentToolStats = usage.tools.byTool.find((t) => t.name === toolName);
+
       // 日志输出 usage
       log(
-        `[${sessionLogId}][tool usage] %s: calls=%d, time=%dms, success=%s`,
+        `[${sessionLogId}][tool usage] %s: calls=%d, time=%dms, success=%s, cost=$%s`,
         toolName,
-        newState.usage.tools.totalCalls,
+        currentToolStats?.calls || 0,
         executionTime,
         isSuccess,
+        toolCost.toFixed(4),
       );
 
       log('[%s:%d] Tool execution completed', sessionId, stepIndex);
@@ -476,9 +482,10 @@ export const createRuntimeExecutors = (
             stepCount: state.stepCount + 1,
           },
           stepUsage: {
-            executionTime,
-            success: isSuccess,
+            cost: toolCost,
             toolName,
+            unitPrice: toolCost,
+            usageCount: 1,
           },
         },
       };

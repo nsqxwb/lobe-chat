@@ -31,7 +31,7 @@ export class AgentStateManager {
   private readonly STEPS_PREFIX = 'agent_runtime_steps';
   private readonly METADATA_PREFIX = 'agent_runtime_meta';
   private readonly EVENTS_PREFIX = 'agent_runtime_events';
-  private readonly DEFAULT_TTL = 24 * 3600; // 1 天
+  private readonly DEFAULT_TTL = 12 * 3600; // 12h
 
   constructor() {
     const redisClient = getRedisClient();
@@ -61,7 +61,7 @@ export class AgentStateManager {
 
       // 状态变更事件通过 saveStepResult 中的 events 数组记录
 
-      log('Saved state for session %s (step %d)', sessionId, state.stepCount);
+      log('[%s] Saved state for step %d', sessionId, state.stepCount);
     } catch (error) {
       console.error('Failed to save agent state:', error);
       throw error;
