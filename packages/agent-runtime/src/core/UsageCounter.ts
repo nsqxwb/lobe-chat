@@ -1,15 +1,62 @@
 import { ModelUsage } from '@lobechat/types';
 
-import { AgentState } from '../types';
+import { Cost, Usage } from '../types/usage';
 
 /**
- * UsageCounter - Centralized usage and cost accumulation for AgentState
- * Encapsulates all logic for tracking LLM and tool usage/costs
- *
- * Immutable design: All methods return updated state.
+ * UsageCounter - Pure accumulator for usage and cost tracking
+ * Focuses only on usage/cost calculations without managing state
  */
 /* eslint-disable unicorn/no-static-only-class */
 export class UsageCounter {
+  /**
+   * Create default usage statistics
+   */
+  private static createDefaultUsage(): Usage {
+    return {
+      humanInteraction: {
+        approvalRequests: 0,
+        promptRequests: 0,
+        selectRequests: 0,
+        totalWaitingTimeMs: 0,
+      },
+      llm: {
+        apiCalls: 0,
+        processingTimeMs: 0,
+        tokens: {
+          input: 0,
+          output: 0,
+          total: 0,
+        },
+      },
+      tools: {
+        byTool: [],
+        totalCalls: 0,
+        totalTimeMs: 0,
+      },
+    };
+  }
+
+  /**
+   * Create default cost statistics
+   */
+  private static createDefaultCost(): Cost {
+    return {
+      calculatedAt: new Date().toISOString(),
+      currency: 'USD',
+      llm: {
+        byModel: [],
+        currency: 'USD',
+        total: 0,
+      },
+      tools: {
+        byTool: [],
+        currency: 'USD',
+        total: 0,
+      },
+      total: 0,
+    };
+  }
+
   /**
    * Merge two ModelUsage objects by accumulating token counts
    * @param previous - Previous usage statistics
@@ -60,42 +107,47 @@ export class UsageCounter {
 
     return merged;
   }
+
   /**
    * Accumulate LLM usage and cost for a specific model
-   * @param state - Current agent state
-   * @param provider - Provider name (e.g., "openai")
-   * @param model - Model name (e.g., "gpt-4")
-   * @param usage - ModelUsage from model-runtime
-   * @returns Updated AgentState with accumulated usage and cost
+   * @param params - Accumulation parameters
+   * @param params.usage - Current usage statistics (optional, will be created if not provided)
+   * @param params.cost - Current cost statistics (optional, will be created if not provided)
+   * @param params.provider - Provider name (e.g., "openai")
+   * @param params.model - Model name (e.g., "gpt-4")
+   * @param params.modelUsage - ModelUsage from model-runtime
+   * @returns Updated usage and cost
    */
-  static accumulateLLM(
-    state: AgentState,
-    provider: string,
-    model: string,
-    usage: ModelUsage,
-  ): AgentState {
-    const newState = structuredClone(state);
+  static accumulateLLM(params: {
+    cost?: Cost;
+    model: string;
+    modelUsage: ModelUsage;
+    provider: string;
+    usage?: Usage;
+  }): { cost?: Cost; usage: Usage } {
+    const { usage, cost, provider, model, modelUsage } = params;
 
-    // 1. Accumulate token counts to usage.llm
-    if (!newState.usage) {
-      throw new Error('AgentState.usage is not initialized');
-    }
+    // Ensure usage exists
+    const newUsage = usage ? structuredClone(usage) : this.createDefaultUsage();
 
-    newState.usage.llm.tokens.input += usage.totalInputTokens ?? 0;
-    newState.usage.llm.tokens.output += usage.totalOutputTokens ?? 0;
-    newState.usage.llm.tokens.total += usage.totalTokens ?? 0;
-    newState.usage.llm.apiCalls += 1;
+    // Accumulate token counts to usage.llm
+    newUsage.llm.tokens.input += modelUsage.totalInputTokens ?? 0;
+    newUsage.llm.tokens.output += modelUsage.totalOutputTokens ?? 0;
+    newUsage.llm.tokens.total += modelUsage.totalTokens ?? 0;
+    newUsage.llm.apiCalls += 1;
 
-    // 2. Accumulate cost (only when cost is available)
-    if (usage.cost) {
-      if (!newState.cost) {
-        throw new Error('AgentState.cost is not initialized');
-      }
+    // Ensure cost exists if modelUsage has cost
+    let newCost = cost
+      ? structuredClone(cost)
+      : modelUsage.cost
+        ? this.createDefaultCost()
+        : undefined;
 
+    if (modelUsage.cost && newCost) {
       const modelId = `${provider}/${model}`;
 
       // Find or create byModel entry
-      let modelEntry = newState.cost.llm.byModel.find((entry) => entry.id === modelId);
+      let modelEntry = newCost.llm.byModel.find((entry) => entry.id === modelId);
 
       if (!modelEntry) {
         modelEntry = {
@@ -105,46 +157,48 @@ export class UsageCounter {
           totalCost: 0,
           usage: {},
         };
-        newState.cost.llm.byModel.push(modelEntry);
+        newCost.llm.byModel.push(modelEntry);
       }
 
       // Merge usage breakdown
-      modelEntry.usage = UsageCounter.mergeModelUsage(modelEntry.usage, usage);
+      modelEntry.usage = UsageCounter.mergeModelUsage(modelEntry.usage, modelUsage);
 
       // Accumulate costs
-      modelEntry.totalCost += usage.cost;
-      newState.cost.llm.total += usage.cost;
-      newState.cost.total += usage.cost;
-      newState.cost.calculatedAt = new Date().toISOString();
+      modelEntry.totalCost += modelUsage.cost;
+      newCost.llm.total += modelUsage.cost;
+      newCost.total += modelUsage.cost;
+      newCost.calculatedAt = new Date().toISOString();
     }
 
-    return newState;
+    return { cost: newCost, usage: newUsage };
   }
 
   /**
    * Accumulate tool usage and cost
-   * @param state - Current agent state
-   * @param toolName - Tool identifier
-   * @param executionTime - Execution time in milliseconds
-   * @param success - Whether the execution was successful
-   * @param cost - Optional cost for this tool call
-   * @returns Updated AgentState with accumulated tool usage and cost
+   * @param params - Accumulation parameters
+   * @param params.usage - Current usage statistics (optional, will be created if not provided)
+   * @param params.cost - Current cost statistics (optional, will be created if not provided)
+   * @param params.toolName - Tool identifier
+   * @param params.executionTime - Execution time in milliseconds
+   * @param params.success - Whether the execution was successful
+   * @param params.toolCost - Optional cost for this tool call
+   * @returns Updated usage and cost
    */
-  static accumulateTool(
-    state: AgentState,
-    toolName: string,
-    executionTime: number,
-    success: boolean,
-    cost?: number,
-  ): AgentState {
-    const newState = structuredClone(state);
+  static accumulateTool(params: {
+    cost?: Cost;
+    executionTime: number;
+    success: boolean;
+    toolCost?: number;
+    toolName: string;
+    usage?: Usage;
+  }): { cost?: Cost; usage: Usage } {
+    const { usage, cost, toolName, executionTime, success, toolCost } = params;
 
-    if (!newState.usage) {
-      throw new Error('AgentState.usage is not initialized');
-    }
+    // Ensure usage exists
+    const newUsage = usage ? structuredClone(usage) : this.createDefaultUsage();
 
     // Find or create byTool entry
-    let toolEntry = newState.usage.tools.byTool.find((entry) => entry.name === toolName);
+    let toolEntry = newUsage.tools.byTool.find((entry) => entry.name === toolName);
 
     if (!toolEntry) {
       toolEntry = {
@@ -153,7 +207,7 @@ export class UsageCounter {
         name: toolName,
         totalTimeMs: 0,
       };
-      newState.usage.tools.byTool.push(toolEntry);
+      newUsage.tools.byTool.push(toolEntry);
     }
 
     // Accumulate tool usage
@@ -163,12 +217,14 @@ export class UsageCounter {
       toolEntry.errors += 1;
     }
 
-    newState.usage.tools.totalCalls += 1;
-    newState.usage.tools.totalTimeMs += executionTime;
+    newUsage.tools.totalCalls += 1;
+    newUsage.tools.totalTimeMs += executionTime;
 
-    // Accumulate cost if provided
-    if (cost && newState.cost) {
-      let toolCostEntry = newState.cost.tools.byTool.find((entry) => entry.name === toolName);
+    // Ensure cost exists if toolCost is provided
+    let newCost = cost ? structuredClone(cost) : toolCost ? this.createDefaultCost() : undefined;
+
+    if (toolCost && newCost) {
+      let toolCostEntry = newCost.tools.byTool.find((entry) => entry.name === toolName);
 
       if (!toolCostEntry) {
         toolCostEntry = {
@@ -177,16 +233,16 @@ export class UsageCounter {
           name: toolName,
           totalCost: 0,
         };
-        newState.cost.tools.byTool.push(toolCostEntry);
+        newCost.tools.byTool.push(toolCostEntry);
       }
 
       toolCostEntry.calls += 1;
-      toolCostEntry.totalCost += cost;
-      newState.cost.tools.total += cost;
-      newState.cost.total += cost;
-      newState.cost.calculatedAt = new Date().toISOString();
+      toolCostEntry.totalCost += toolCost;
+      newCost.tools.total += toolCost;
+      newCost.total += toolCost;
+      newCost.calculatedAt = new Date().toISOString();
     }
 
-    return newState;
+    return { cost: newCost, usage: newUsage };
   }
 }

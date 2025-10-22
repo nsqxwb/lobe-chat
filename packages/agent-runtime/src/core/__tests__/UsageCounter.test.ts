@@ -1,7 +1,6 @@
 import { ModelUsage } from '@lobechat/types';
 import { describe, expect, it } from 'vitest';
 
-import { AgentState } from '../../types';
 import { UsageCounter } from '../UsageCounter';
 import { AgentRuntime } from '../runtime';
 
@@ -10,49 +9,67 @@ describe('UsageCounter', () => {
     it('should accumulate LLM usage tokens', () => {
       const state = AgentRuntime.createInitialState();
 
-      const usage: ModelUsage = {
+      const modelUsage: ModelUsage = {
         totalInputTokens: 100,
         totalOutputTokens: 50,
         totalTokens: 150,
       };
 
-      const newState = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage);
+      const { usage } = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage,
+        provider: 'openai',
+        usage: state.usage,
+      });
 
-      expect(newState.usage.llm.tokens.input).toBe(100);
-      expect(newState.usage.llm.tokens.output).toBe(50);
-      expect(newState.usage.llm.tokens.total).toBe(150);
-      expect(newState.usage.llm.apiCalls).toBe(1);
+      expect(usage.llm.tokens.input).toBe(100);
+      expect(usage.llm.tokens.output).toBe(50);
+      expect(usage.llm.tokens.total).toBe(150);
+      expect(usage.llm.apiCalls).toBe(1);
     });
 
-    it('should not mutate original state', () => {
+    it('should not mutate original usage', () => {
       const state = AgentRuntime.createInitialState();
 
-      const usage: ModelUsage = {
+      const modelUsage: ModelUsage = {
         totalInputTokens: 100,
         totalOutputTokens: 50,
         totalTokens: 150,
       };
 
-      const newState = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage);
+      const { usage } = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: modelUsage,
+        provider: 'openai',
+        usage: state.usage,
+      });
 
       expect(state.usage.llm.tokens.input).toBe(0);
-      expect(newState).not.toBe(state);
+      expect(usage).not.toBe(state.usage);
     });
 
     it('should create new byModel entry when not exists', () => {
       const state = AgentRuntime.createInitialState();
 
-      const usage: ModelUsage = {
+      const modelUsage: ModelUsage = {
         cost: 0.05,
         totalInputTokens: 100,
         totalOutputTokens: 50,
         totalTokens: 150,
       };
 
-      const newState = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage);
+      const { cost } = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: modelUsage,
+        provider: 'openai',
+        usage: state.usage,
+      });
 
-      expect(newState.cost.llm.byModel).toHaveLength(1);
-      expect(newState.cost.llm.byModel[0]).toEqual({
+      expect(cost?.llm.byModel).toHaveLength(1);
+      expect(cost?.llm.byModel[0]).toEqual({
         id: 'openai/gpt-4',
         model: 'gpt-4',
         provider: 'openai',
@@ -67,7 +84,7 @@ describe('UsageCounter', () => {
     });
 
     it('should accumulate to existing byModel entry', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -83,11 +100,23 @@ describe('UsageCounter', () => {
         totalTokens: 75,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage1);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'gpt-4',
+        modelUsage: usage2,
+        provider: 'openai',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel).toHaveLength(1);
-      expect(state.cost.llm.byModel[0]).toEqual({
+      expect(result2.cost?.llm.byModel).toHaveLength(1);
+      expect(result2.cost?.llm.byModel[0]).toEqual({
         id: 'openai/gpt-4',
         model: 'gpt-4',
         provider: 'openai',
@@ -102,7 +131,7 @@ describe('UsageCounter', () => {
     });
 
     it('should accumulate multiple models separately', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -118,18 +147,30 @@ describe('UsageCounter', () => {
         totalTokens: 75,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage1);
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: usage2,
+        provider: 'anthropic',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel).toHaveLength(2);
-      expect(state.cost.llm.byModel[0].id).toBe('openai/gpt-4');
-      expect(state.cost.llm.byModel[1].id).toBe('anthropic/claude-3-5-sonnet-20241022');
+      expect(result2.cost?.llm.byModel).toHaveLength(2);
+      expect(result2.cost?.llm.byModel[0].id).toBe('openai/gpt-4');
+      expect(result2.cost?.llm.byModel[1].id).toBe('anthropic/claude-3-5-sonnet-20241022');
     });
 
     it('should accumulate cache-related tokens', () => {
       const state = AgentRuntime.createInitialState();
 
-      const usage: ModelUsage = {
+      const modelUsage: ModelUsage = {
         cost: 0.05,
         inputCacheMissTokens: 60,
         inputCachedTokens: 40,
@@ -139,14 +180,15 @@ describe('UsageCounter', () => {
         totalTokens: 150,
       };
 
-      const newState = UsageCounter.accumulateLLM(
-        state,
-        'anthropic',
-        'claude-3-5-sonnet-20241022',
-        usage,
-      );
+      const { cost } = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: modelUsage,
+        provider: 'anthropic',
+        usage: state.usage,
+      });
 
-      expect(newState.cost.llm.byModel[0].usage).toEqual({
+      expect(cost?.llm.byModel[0].usage).toEqual({
         cost: 0.05,
         inputCacheMissTokens: 60,
         inputCachedTokens: 40,
@@ -158,7 +200,7 @@ describe('UsageCounter', () => {
     });
 
     it('should accumulate total costs correctly', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -174,44 +216,105 @@ describe('UsageCounter', () => {
         totalTokens: 75,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage1);
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: usage2,
+        provider: 'anthropic',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.total).toBe(0.08);
-      expect(state.cost.total).toBe(0.08);
-      expect(state.cost.calculatedAt).toBeDefined();
+      expect(result2.cost?.llm.total).toBe(0.08);
+      expect(result2.cost?.total).toBe(0.08);
+      expect(result2.cost?.calculatedAt).toBeDefined();
     });
 
     it('should not accumulate cost when usage.cost is undefined', () => {
       const state = AgentRuntime.createInitialState();
 
-      const usage: ModelUsage = {
+      const modelUsage: ModelUsage = {
         totalInputTokens: 100,
         totalOutputTokens: 50,
         totalTokens: 150,
       };
 
-      const newState = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage);
+      const { cost } = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: modelUsage,
+        provider: 'openai',
+        usage: state.usage,
+      });
 
-      expect(newState.cost.llm.byModel).toHaveLength(0);
-      expect(newState.cost.llm.total).toBe(0);
-      expect(newState.cost.total).toBe(0);
+      expect(cost?.llm.byModel).toHaveLength(0);
+      expect(cost?.llm.total).toBe(0);
+      expect(cost?.total).toBe(0);
     });
 
     it('should increment apiCalls for each accumulation', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
-      const usage: ModelUsage = {
+      const modelUsage: ModelUsage = {
         totalInputTokens: 100,
         totalOutputTokens: 50,
         totalTokens: 150,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage);
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: modelUsage,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'gpt-4',
+        modelUsage: modelUsage,
+        provider: 'openai',
+        usage: result1.usage,
+      });
+      const result3 = UsageCounter.accumulateLLM({
+        cost: result2.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: modelUsage,
+        provider: 'anthropic',
+        usage: result2.usage,
+      });
 
-      expect(state.usage.llm.apiCalls).toBe(3);
+      expect(result3.usage.llm.apiCalls).toBe(3);
+    });
+
+    it('should auto-create usage and cost when not provided', () => {
+      const modelUsage: ModelUsage = {
+        cost: 0.05,
+        totalInputTokens: 100,
+        totalOutputTokens: 50,
+        totalTokens: 150,
+      };
+
+      const { usage, cost } = UsageCounter.accumulateLLM({
+        model: 'gpt-4',
+        modelUsage,
+        provider: 'openai',
+      });
+
+      expect(usage).toBeDefined();
+      expect(usage.llm.tokens.input).toBe(100);
+      expect(usage.llm.tokens.output).toBe(50);
+      expect(usage.llm.tokens.total).toBe(150);
+      expect(usage.llm.apiCalls).toBe(1);
+
+      expect(cost).toBeDefined();
+      expect(cost?.total).toBe(0.05);
+      expect(cost?.llm.total).toBe(0.05);
     });
   });
 
@@ -219,34 +322,52 @@ describe('UsageCounter', () => {
     it('should accumulate tool usage', () => {
       const state = AgentRuntime.createInitialState();
 
-      const newState = UsageCounter.accumulateTool(state, 'search', 1000, true);
+      const { usage } = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: true,
+        toolName: 'search',
+        usage: state.usage,
+      });
 
-      expect(newState.usage.tools.byTool).toHaveLength(1);
-      expect(newState.usage.tools.byTool[0]).toEqual({
+      expect(usage.tools.byTool).toHaveLength(1);
+      expect(usage.tools.byTool[0]).toEqual({
         calls: 1,
         errors: 0,
         name: 'search',
         totalTimeMs: 1000,
       });
-      expect(newState.usage.tools.totalCalls).toBe(1);
-      expect(newState.usage.tools.totalTimeMs).toBe(1000);
+      expect(usage.tools.totalCalls).toBe(1);
+      expect(usage.tools.totalTimeMs).toBe(1000);
     });
 
-    it('should not mutate original state', () => {
+    it('should not mutate original usage', () => {
       const state = AgentRuntime.createInitialState();
 
-      const newState = UsageCounter.accumulateTool(state, 'search', 1000, true);
+      const { usage } = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: true,
+        toolName: 'search',
+        usage: state.usage,
+      });
 
       expect(state.usage.tools.totalCalls).toBe(0);
-      expect(newState).not.toBe(state);
+      expect(usage).not.toBe(state.usage);
     });
 
     it('should accumulate errors when success is false', () => {
       const state = AgentRuntime.createInitialState();
 
-      const newState = UsageCounter.accumulateTool(state, 'search', 1000, false);
+      const { usage } = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: false,
+        toolName: 'search',
+        usage: state.usage,
+      });
 
-      expect(newState.usage.tools.byTool[0]).toEqual({
+      expect(usage.tools.byTool[0]).toEqual({
         calls: 1,
         errors: 1,
         name: 'search',
@@ -255,75 +376,120 @@ describe('UsageCounter', () => {
     });
 
     it('should accumulate multiple tool calls', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
-      state = UsageCounter.accumulateTool(state, 'search', 1000, true);
-      state = UsageCounter.accumulateTool(state, 'search', 500, true);
-      state = UsageCounter.accumulateTool(state, 'calculator', 200, false);
+      const result1 = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: true,
+        toolName: 'search',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateTool({
+        cost: result1.cost,
+        executionTime: 500,
+        success: true,
+        toolName: 'search',
+        usage: result1.usage,
+      });
+      const result3 = UsageCounter.accumulateTool({
+        cost: result2.cost,
+        executionTime: 200,
+        success: false,
+        toolName: 'calculator',
+        usage: result2.usage,
+      });
 
-      expect(state.usage.tools.byTool).toHaveLength(2);
-      expect(state.usage.tools.byTool.find((t) => t.name === 'search')).toEqual({
+      expect(result3.usage.tools.byTool).toHaveLength(2);
+      expect(result3.usage.tools.byTool.find((t) => t.name === 'search')).toEqual({
         calls: 2,
         errors: 0,
         name: 'search',
         totalTimeMs: 1500,
       });
-      expect(state.usage.tools.byTool.find((t) => t.name === 'calculator')).toEqual({
+      expect(result3.usage.tools.byTool.find((t) => t.name === 'calculator')).toEqual({
         calls: 1,
         errors: 1,
         name: 'calculator',
         totalTimeMs: 200,
       });
-      expect(state.usage.tools.totalCalls).toBe(3);
-      expect(state.usage.tools.totalTimeMs).toBe(1700);
+      expect(result3.usage.tools.totalCalls).toBe(3);
+      expect(result3.usage.tools.totalTimeMs).toBe(1700);
     });
 
     it('should accumulate tool cost when provided', () => {
       const state = AgentRuntime.createInitialState();
 
-      const newState = UsageCounter.accumulateTool(state, 'premium-search', 1000, true, 0.01);
+      const { cost } = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: true,
+        toolCost: 0.01,
+        toolName: 'premium-search',
+        usage: state.usage,
+      });
 
-      expect(newState.cost.tools.byTool).toHaveLength(1);
-      expect(newState.cost.tools.byTool[0]).toEqual({
+      expect(cost?.tools.byTool).toHaveLength(1);
+      expect(cost?.tools.byTool[0]).toEqual({
         calls: 1,
         currency: 'USD',
         name: 'premium-search',
         totalCost: 0.01,
       });
-      expect(newState.cost.tools.total).toBe(0.01);
-      expect(newState.cost.total).toBe(0.01);
+      expect(cost?.tools.total).toBe(0.01);
+      expect(cost?.total).toBe(0.01);
     });
 
     it('should accumulate tool cost across multiple calls', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
-      state = UsageCounter.accumulateTool(state, 'premium-search', 1000, true, 0.01);
-      state = UsageCounter.accumulateTool(state, 'premium-search', 500, true, 0.005);
+      const result1 = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: true,
+        toolCost: 0.01,
+        toolName: 'premium-search',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateTool({
+        cost: result1.cost,
+        executionTime: 500,
+        success: true,
+        toolCost: 0.005,
+        toolName: 'premium-search',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.tools.byTool).toHaveLength(1);
-      expect(state.cost.tools.byTool[0]).toEqual({
+      expect(result2.cost?.tools.byTool).toHaveLength(1);
+      expect(result2.cost?.tools.byTool[0]).toEqual({
         calls: 2,
         currency: 'USD',
         name: 'premium-search',
         totalCost: 0.015,
       });
-      expect(state.cost.tools.total).toBe(0.015);
-      expect(state.cost.total).toBe(0.015);
+      expect(result2.cost?.tools.total).toBe(0.015);
+      expect(result2.cost?.total).toBe(0.015);
     });
 
     it('should not accumulate cost when cost is undefined', () => {
       const state = AgentRuntime.createInitialState();
 
-      const newState = UsageCounter.accumulateTool(state, 'free-tool', 1000, true);
+      const { cost } = UsageCounter.accumulateTool({
+        cost: state.cost,
+        executionTime: 1000,
+        success: true,
+        toolName: 'free-tool',
+        usage: state.usage,
+      });
 
-      expect(newState.cost.tools.byTool).toHaveLength(0);
-      expect(newState.cost.tools.total).toBe(0);
+      expect(cost?.tools.byTool).toHaveLength(0);
+      expect(cost?.tools.total).toBe(0);
     });
   });
 
   describe('mixed accumulation', () => {
     it('should accumulate both LLM and tool costs correctly', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const llmUsage: ModelUsage = {
         cost: 0.05,
@@ -332,51 +498,31 @@ describe('UsageCounter', () => {
         totalTokens: 150,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', llmUsage);
-      state = UsageCounter.accumulateTool(state, 'premium-search', 1000, true, 0.01);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: llmUsage,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateTool({
+        cost: result1.cost,
+        executionTime: 1000,
+        success: true,
+        toolCost: 0.01,
+        toolName: 'premium-search',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.total).toBe(0.05);
-      expect(state.cost.tools.total).toBe(0.01);
-      expect(state.cost.total).toBeCloseTo(0.06);
-    });
-  });
-
-  describe('error handling', () => {
-    it('should throw error when usage is not initialized', () => {
-      const state = {
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        messages: [],
-        sessionId: 'test-session',
-        status: 'running',
-        stepCount: 0,
-      } as unknown as AgentState;
-
-      expect(() => {
-        UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', { totalInputTokens: 100 });
-      }).toThrow('AgentState.usage is not initialized');
-    });
-
-    it('should throw error when cost is not initialized but trying to accumulate cost', () => {
-      const state = {
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString(),
-        messages: [],
-        sessionId: 'test-session',
-        status: 'running',
-        stepCount: 0,
-        usage: AgentRuntime.createDefaultUsage(),
-      } as unknown as AgentState;
-
-      expect(() => {
-        UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', { cost: 0.05, totalInputTokens: 100 });
-      }).toThrow('AgentState.cost is not initialized');
+      expect(result2.cost?.llm.total).toBe(0.05);
+      expect(result2.cost?.tools.total).toBe(0.01);
+      expect(result2.cost?.total).toBeCloseTo(0.06);
     });
   });
 
   describe('mergeModelUsage (private method tests via accumulateLLM)', () => {
     it('should merge basic token counts', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -392,10 +538,22 @@ describe('UsageCounter', () => {
         totalTokens: 300,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage1);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'gpt-4',
+        modelUsage: usage2,
+        provider: 'openai',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         cost: 0.08,
         totalInputTokens: 300,
         totalOutputTokens: 150,
@@ -404,7 +562,7 @@ describe('UsageCounter', () => {
     });
 
     it('should merge cache-related tokens', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -426,10 +584,22 @@ describe('UsageCounter', () => {
         totalTokens: 225,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage1);
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: usage1,
+        provider: 'anthropic',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: usage2,
+        provider: 'anthropic',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         cost: 0.08,
         inputCacheMissTokens: 70,
         inputCachedTokens: 130,
@@ -441,7 +611,7 @@ describe('UsageCounter', () => {
     });
 
     it('should merge reasoning tokens', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -461,10 +631,22 @@ describe('UsageCounter', () => {
         totalTokens: 200,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'o1', usage1);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'o1', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'o1',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'o1',
+        modelUsage: usage2,
+        provider: 'openai',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         cost: 0.08,
         outputReasoningTokens: 150,
         outputTextTokens: 300,
@@ -475,7 +657,7 @@ describe('UsageCounter', () => {
     });
 
     it('should merge audio and image tokens', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -499,10 +681,22 @@ describe('UsageCounter', () => {
         totalTokens: 60,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4o-audio-preview', usage1);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4o-audio-preview', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4o-audio-preview',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'gpt-4o-audio-preview',
+        modelUsage: usage2,
+        provider: 'openai',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         cost: 0.08,
         inputAudioTokens: 25,
         inputImageTokens: 45,
@@ -515,7 +709,7 @@ describe('UsageCounter', () => {
     });
 
     it('should merge prediction tokens', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         acceptedPredictionTokens: 50,
@@ -535,10 +729,22 @@ describe('UsageCounter', () => {
         totalTokens: 85,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4o', usage1);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4o', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4o',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'gpt-4o',
+        modelUsage: usage2,
+        provider: 'openai',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         acceptedPredictionTokens: 80,
         cost: 0.08,
         rejectedPredictionTokens: 15,
@@ -549,7 +755,7 @@ describe('UsageCounter', () => {
     });
 
     it('should handle missing fields gracefully', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         cost: 0.05,
@@ -563,10 +769,22 @@ describe('UsageCounter', () => {
         // totalInputTokens is missing
       };
 
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage1);
-      state = UsageCounter.accumulateLLM(state, 'openai', 'gpt-4', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'gpt-4',
+        modelUsage: usage1,
+        provider: 'openai',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'gpt-4',
+        modelUsage: usage2,
+        provider: 'openai',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         cost: 0.08,
         totalInputTokens: 100,
         totalOutputTokens: 50,
@@ -574,7 +792,7 @@ describe('UsageCounter', () => {
     });
 
     it('should merge all fields in a comprehensive scenario', () => {
-      let state = AgentRuntime.createInitialState();
+      const state = AgentRuntime.createInitialState();
 
       const usage1: ModelUsage = {
         acceptedPredictionTokens: 10,
@@ -616,10 +834,22 @@ describe('UsageCounter', () => {
         totalTokens: 140,
       };
 
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage1);
-      state = UsageCounter.accumulateLLM(state, 'anthropic', 'claude-3-5-sonnet-20241022', usage2);
+      const result1 = UsageCounter.accumulateLLM({
+        cost: state.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: usage1,
+        provider: 'anthropic',
+        usage: state.usage,
+      });
+      const result2 = UsageCounter.accumulateLLM({
+        cost: result1.cost,
+        model: 'claude-3-5-sonnet-20241022',
+        modelUsage: usage2,
+        provider: 'anthropic',
+        usage: result1.usage,
+      });
 
-      expect(state.cost.llm.byModel[0].usage).toEqual({
+      expect(result2.cost?.llm.byModel[0].usage).toEqual({
         acceptedPredictionTokens: 15,
         cost: 0.08,
         inputAudioTokens: 8,

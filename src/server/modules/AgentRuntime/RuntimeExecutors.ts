@@ -1,9 +1,9 @@
 import {
   AgentEvent,
   AgentInstruction,
-  AgentRuntime,
   CallLLMPayload,
   InstructionExecutor,
+  UsageCounter,
 } from '@lobechat/agent-runtime';
 import { ToolNameResolver } from '@lobechat/context-engine';
 import { consumeStreamUntilDone } from '@lobechat/model-runtime';
@@ -277,13 +277,10 @@ export const createRuntimeExecutors = (
           content,
           // 保存原始 usage，不做任何修改
           metadata: currentStepUsage,
-
           reasoning: {
             content: thinkingContent,
           },
-
           search: grounding,
-
           tools: toolsCalling.length > 0 ? toolsCalling : undefined,
         });
       } catch (error) {
@@ -291,7 +288,8 @@ export const createRuntimeExecutors = (
       }
 
       // ===== 2. 然后累加到 AgentState =====
-      const newState = structuredClone(state);
+      let newState = structuredClone(state);
+
       newState.messages.push({
         content,
         role: 'assistant',
@@ -299,46 +297,17 @@ export const createRuntimeExecutors = (
       });
 
       if (currentStepUsage) {
-        // 确保 usage 和 cost 结构存在
-        if (!newState.usage) {
-          newState.usage = AgentRuntime.createDefaultUsage();
-        }
+        // 使用 UsageCounter 统一累加 usage 和 cost
+        const { usage, cost } = UsageCounter.accumulateLLM({
+          cost: newState.cost,
+          model: llmPayload.model,
+          modelUsage: currentStepUsage,
+          provider: llmPayload.provider,
+          usage: newState.usage,
+        });
 
-        if (!newState.cost) {
-          newState.cost = AgentRuntime.createDefaultCost();
-        }
-
-        // 累加 token 统计
-        newState.usage.llm.tokens.input += currentStepUsage.totalInputTokens ?? 0;
-        newState.usage.llm.tokens.output += currentStepUsage.totalOutputTokens ?? 0;
-        newState.usage.llm.tokens.total += currentStepUsage.totalTokens ?? 0;
-        newState.usage.llm.apiCalls += 1;
-
-        // 只有当有 cost 时才累加成本
-        if (currentStepUsage.cost) {
-          const modelKey = `${llmPayload.provider}/${llmPayload.model}`;
-
-          // 初始化 byModel 记录
-          if (!newState.cost.llm.byModel[modelKey]) {
-            newState.cost.llm.byModel[modelKey] = {
-              currency: 'USD',
-              inputTokens: 0,
-              outputTokens: 0,
-              totalCost: 0,
-            };
-          }
-
-          // 累加到 byModel
-          newState.cost.llm.byModel[modelKey].inputTokens += currentStepUsage.totalInputTokens ?? 0;
-          newState.cost.llm.byModel[modelKey].outputTokens +=
-            currentStepUsage.totalOutputTokens ?? 0;
-          newState.cost.llm.byModel[modelKey].totalCost += currentStepUsage.cost;
-
-          // 累加到总计
-          newState.cost.llm.total += currentStepUsage.cost;
-          newState.cost.total += currentStepUsage.cost;
-          newState.cost.calculatedAt = new Date().toISOString();
-        }
+        newState.usage = usage;
+        if (cost) newState.cost = cost;
       }
 
       return {
