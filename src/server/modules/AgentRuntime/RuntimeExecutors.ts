@@ -1,6 +1,7 @@
 import {
   AgentEvent,
   AgentInstruction,
+  AgentRuntime,
   CallLLMPayload,
   InstructionExecutor,
 } from '@lobechat/agent-runtime';
@@ -78,6 +79,7 @@ export const createRuntimeExecutors = (
       let thinkingContent = '';
       let imageList: any[] = [];
       let grounding: any = null;
+      let currentStepUsage: any = undefined;
 
       // 初始化 ModelRuntime
       const modelRuntime = initModelRuntimeWithUserPayload(
@@ -92,7 +94,12 @@ export const createRuntimeExecutors = (
         tools: llmPayload.tools,
       };
 
-      log(`${stagePrefix} calling model-runtime chat with payload: %O`, chatPayload);
+      log(
+        `${stagePrefix} calling model-runtime chat (model: %s, messages: %d, tools: %d)`,
+        llmPayload.model,
+        llmPayload.messages.length,
+        llmPayload.tools?.length ?? 0,
+      );
 
       // Buffer：累积 text 和 reasoning，每 50ms 发送一次
       const BUFFER_INTERVAL = 50;
@@ -146,6 +153,13 @@ export const createRuntimeExecutors = (
       // 调用 model-runtime chat
       const response = await modelRuntime.chat(chatPayload, {
         callback: {
+          onCompletion: async (data) => {
+            // 捕获 usage (可能包含 cost，也可能不包含)
+            if (data.usage) {
+              currentStepUsage = data.usage;
+              log('usage: %O', data.usage);
+            }
+          },
           onText: async (text) => {
             // log(`[${sessionLogId}][text]`, text);
             content += text;
@@ -224,9 +238,20 @@ export const createRuntimeExecutors = (
         log(`[${sessionLogId}][toolsCalling] `, toolsCalling);
       }
 
+      // 日志输出 usage
+      if (currentStepUsage) {
+        log(
+          `[${sessionLogId}][usage] input: %d, output: %d, total: %d, cost: $%s`,
+          currentStepUsage.totalInputTokens ?? 0,
+          currentStepUsage.totalOutputTokens ?? 0,
+          currentStepUsage.totalTokens ?? 0,
+          currentStepUsage.cost ? currentStepUsage.cost.toFixed(6) : 'N/A',
+        );
+      }
+
       // 添加一个完整的 llm_stream 事件（包含所有流式块）
       events.push({
-        result: { content, reasoning: thinkingContent, tool_calls },
+        result: { content, reasoning: thinkingContent, tool_calls, usage: currentStepUsage },
         type: 'llm_result',
       });
 
@@ -238,6 +263,7 @@ export const createRuntimeExecutors = (
           imageList: imageList.length > 0 ? imageList : undefined,
           reasoning: thinkingContent || undefined,
           toolsCalling: toolsCalling,
+          usage: currentStepUsage,
         },
         stepIndex,
         type: 'stream_end',
@@ -245,27 +271,75 @@ export const createRuntimeExecutors = (
 
       log('[%s:%d] call_llm completed', sessionId, stepIndex);
 
-      // 最终更新数据库
+      // ===== 1. 先保存原始 usage 到 message.metadata =====
       try {
         await ctx.messageModel.update(assistantMessageItem.id, {
           content,
+          // 保存原始 usage，不做任何修改
+          metadata: currentStepUsage,
+
           reasoning: {
             content: thinkingContent,
           },
+
           search: grounding,
+
           tools: toolsCalling.length > 0 ? toolsCalling : undefined,
         });
       } catch (error) {
-        console.error('[StreamingLLMExecutor] Failed to update final message: %O', error);
+        console.error('[call_llm] Failed to update message:', error);
       }
 
-      // 更新 Agent 状态
+      // ===== 2. 然后累加到 AgentState =====
       const newState = structuredClone(state);
       newState.messages.push({
         content,
         role: 'assistant',
         tool_calls: tool_calls.length > 0 ? tool_calls : undefined,
       });
+
+      if (currentStepUsage) {
+        // 确保 usage 和 cost 结构存在
+        if (!newState.usage) {
+          newState.usage = AgentRuntime.createDefaultUsage();
+        }
+
+        if (!newState.cost) {
+          newState.cost = AgentRuntime.createDefaultCost();
+        }
+
+        // 累加 token 统计
+        newState.usage.llm.tokens.input += currentStepUsage.totalInputTokens ?? 0;
+        newState.usage.llm.tokens.output += currentStepUsage.totalOutputTokens ?? 0;
+        newState.usage.llm.tokens.total += currentStepUsage.totalTokens ?? 0;
+        newState.usage.llm.apiCalls += 1;
+
+        // 只有当有 cost 时才累加成本
+        if (currentStepUsage.cost) {
+          const modelKey = `${llmPayload.provider}/${llmPayload.model}`;
+
+          // 初始化 byModel 记录
+          if (!newState.cost.llm.byModel[modelKey]) {
+            newState.cost.llm.byModel[modelKey] = {
+              currency: 'USD',
+              inputTokens: 0,
+              outputTokens: 0,
+              totalCost: 0,
+            };
+          }
+
+          // 累加到 byModel
+          newState.cost.llm.byModel[modelKey].inputTokens += currentStepUsage.totalInputTokens ?? 0;
+          newState.cost.llm.byModel[modelKey].outputTokens +=
+            currentStepUsage.totalOutputTokens ?? 0;
+          newState.cost.llm.byModel[modelKey].totalCost += currentStepUsage.cost;
+
+          // 累加到总计
+          newState.cost.llm.total += currentStepUsage.cost;
+          newState.cost.total += currentStepUsage.cost;
+          newState.cost.calculatedAt = new Date().toISOString();
+        }
+      }
 
       return {
         events,
@@ -284,6 +358,7 @@ export const createRuntimeExecutors = (
             status: 'running',
             stepCount: state.stepCount + 1,
           },
+          stepUsage: currentStepUsage,
         },
       };
     } catch (error) {

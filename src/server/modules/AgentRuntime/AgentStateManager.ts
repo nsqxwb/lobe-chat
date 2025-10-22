@@ -239,7 +239,7 @@ export class AgentStateManager {
       await this.redis.hmset(metaKey, redisData);
       await this.redis.expire(metaKey, this.DEFAULT_TTL);
 
-      log('Created session metadata for %s', sessionId);
+      log('[%s]Created session metadata', sessionId);
     } catch (error) {
       console.error('Failed to create session metadata:', error);
       throw error;

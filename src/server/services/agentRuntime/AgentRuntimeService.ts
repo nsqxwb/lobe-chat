@@ -85,7 +85,7 @@ export class AgentRuntimeService {
     } = params;
 
     try {
-      log('Creating new session %s (autoStart: %s)', sessionId, autoStart);
+      log('[ %s] Creating new session (autoStart: %s)', sessionId, autoStart);
 
       // 初始化会话状态 - 先创建状态再保存
       const initialState = {
@@ -93,7 +93,6 @@ export class AgentRuntimeService {
         lastModified: new Date().toISOString(),
         // 使用传入的初始消息
         messages: initialMessages,
-
         metadata: {
           agentConfig,
           modelRuntimeConfig,
