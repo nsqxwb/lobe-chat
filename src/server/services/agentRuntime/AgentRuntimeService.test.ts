@@ -54,7 +54,7 @@ describe('AgentRuntimeService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.AGENT_RUNTIME_BASE_URL = 'http://localhost:3010/api/agent';
+    process.env.AGENT_RUNTIME_BASE_URL = 'http://localhost:3010';
 
     // Mock database
     mockDb = {
@@ -84,7 +84,7 @@ describe('AgentRuntimeService', () => {
     });
 
     it('should initialize with custom base URL from environment', () => {
-      process.env.AGENT_RUNTIME_BASE_URL = 'http://custom:3000/api/agent';
+      process.env.AGENT_RUNTIME_BASE_URL = 'http://custom:3000';
       const newService = new AgentRuntimeService(mockDb, mockUserId);
       expect((newService as any).baseURL).toBe('http://custom:3000/api/agent');
     });
