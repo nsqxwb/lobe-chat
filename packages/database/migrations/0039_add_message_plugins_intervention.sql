@@ -1,1 +1,1 @@
-ALTER TABLE "message_plugins" ADD COLUMN "intervention" jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE "message_plugins" ADD COLUMN IF NOT EXISTS "intervention" jsonb DEFAULT '{}'::jsonb;
