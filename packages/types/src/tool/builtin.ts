@@ -1,8 +1,31 @@
-import { Meta } from '@lobehub/chat-plugin-sdk';
 import { ReactNode } from 'react';
 
 import type { HumanInterventionConfig, HumanInterventionPolicy } from './intervention';
 
+interface Meta {
+  /**
+   * avatar
+   * @desc Avatar of the plugin
+   * @nameCN 头像
+   * @descCN 插件的头像
+   */
+  avatar?: string;
+  /**
+   * description
+   * @desc Description of the plugin
+   * @nameCN 描述
+   * @descCN 插件的描述
+   */
+  description?: string;
+  /**
+   * tags
+   * @desc Tags of the plugin
+   * @nameCN 标签
+   * @descCN 插件的标签
+   */
+  tags?: string[];
+  title: string;
+}
 export interface LobeChatPluginApi {
   description: string;
   /**

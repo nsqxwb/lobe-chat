@@ -563,7 +563,7 @@ export const createRuntimeExecutors = (
     >;
     const { sessionId, stepIndex, streamManager } = ctx;
 
-    log('Requesting human approval for session %s:%d', sessionId, stepIndex);
+    log('[%s:%d] Requesting human approval for %O', sessionId, stepIndex, pendingToolsCalling);
 
     // 发布人工审批请求事件
     await streamManager.publishStreamEvent(sessionId, {
@@ -578,7 +578,7 @@ export const createRuntimeExecutors = (
 
     const newState = structuredClone(state);
     newState.lastModified = new Date().toISOString();
-    newState.status = 'waiting_for_human_input';
+    newState.status = 'waiting_for_human';
     newState.pendingToolsCalling = pendingToolsCalling;
 
     // 通过流式系统通知前端显示审批 UI

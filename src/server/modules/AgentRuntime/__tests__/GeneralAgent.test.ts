@@ -1,5 +1,5 @@
 import type { AgentRuntimeContext, AgentState } from '@lobechat/agent-runtime';
-import type { HumanInterventionConfig } from '@lobechat/types';
+import type { BuiltinToolManifest, HumanInterventionConfig } from '@lobechat/types';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { GeneralAgentLLMResultPayload } from '../GeneralAgent';
@@ -305,7 +305,7 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, undefined);
         expect(policy).toBe('never');
       });
 
@@ -318,18 +318,18 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        mockState.toolManifestMap = {
-          'test-tool': {
-            api: [{ name: 'testApi' }],
-            identifier: 'test-tool',
-          },
+        const manifest: BuiltinToolManifest = {
+          api: [{ name: 'testApi', description: 'Test API', parameters: {} }],
+          identifier: 'test-tool',
+          meta: { title: 'Test Tool' },
+          systemRole: '',
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
         expect(policy).toBe('never');
       });
 
-      it('should return always for always policy', () => {
+      it('should return always for tool-level always policy', () => {
         const toolCall = {
           apiName: 'testApi',
           arguments: '{}',
@@ -338,19 +338,19 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        mockState.toolManifestMap = {
-          'test-tool': {
-            api: [{ name: 'testApi' }],
-            humanInterventionConfig: 'always' as HumanInterventionConfig,
-            identifier: 'test-tool',
-          },
+        const manifest: BuiltinToolManifest = {
+          api: [{ name: 'testApi', description: 'Test API', parameters: {} }],
+          humanIntervention: 'always',
+          identifier: 'test-tool',
+          meta: { title: 'Test Tool' },
+          systemRole: '',
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
         expect(policy).toBe('always');
       });
 
-      it('should return never for never policy', () => {
+      it('should return never for tool-level never policy', () => {
         const toolCall = {
           apiName: 'testApi',
           arguments: '{}',
@@ -359,19 +359,19 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        mockState.toolManifestMap = {
-          'test-tool': {
-            api: [{ name: 'testApi' }],
-            humanInterventionConfig: 'never' as HumanInterventionConfig,
-            identifier: 'test-tool',
-          },
+        const manifest: BuiltinToolManifest = {
+          api: [{ name: 'testApi', description: 'Test API', parameters: {} }],
+          humanIntervention: 'never',
+          identifier: 'test-tool',
+          meta: { title: 'Test Tool' },
+          systemRole: '',
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
         expect(policy).toBe('never');
       });
 
-      it('should check intervention based on tool arguments with rule-based config', () => {
+      it('should check intervention based on tool arguments with API-level rule-based config', () => {
         const toolCall = {
           apiName: 'bash',
           arguments: '{"command":"rm:-rf"}',
@@ -380,19 +380,25 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        mockState.toolManifestMap = {
-          'bash-tool': {
-            api: [{ name: 'bash' }],
-            humanInterventionConfig: [
-              { match: { command: 'ls:*' }, policy: 'never' },
-              { match: { command: 'rm:*' }, policy: 'always' },
-              { policy: 'never' },
-            ] as HumanInterventionConfig,
-            identifier: 'bash-tool',
-          },
+        const manifest: BuiltinToolManifest = {
+          api: [
+            {
+              description: 'Execute bash command',
+              humanIntervention: [
+                { match: { command: 'ls:*' }, policy: 'never' },
+                { match: { command: 'rm:*' }, policy: 'always' },
+                { policy: 'never' },
+              ] as HumanInterventionConfig,
+              name: 'bash',
+              parameters: {},
+            },
+          ],
+          identifier: 'bash-tool',
+          meta: { title: 'Bash Tool' },
+          systemRole: '',
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
         expect(policy).toBe('always');
       });
 
@@ -405,15 +411,21 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        mockState.toolManifestMap = {
-          'test-tool': {
-            api: [{ name: 'testApi' }],
-            humanInterventionConfig: 'always' as HumanInterventionConfig,
-            identifier: 'test-tool',
-          },
+        const manifest: BuiltinToolManifest = {
+          api: [
+            {
+              description: 'Test API',
+              humanIntervention: 'always' as HumanInterventionConfig,
+              name: 'testApi',
+              parameters: {},
+            },
+          ],
+          identifier: 'test-tool',
+          meta: { title: 'Test Tool' },
+          systemRole: '',
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
         expect(policy).toBe('always');
       });
 
@@ -426,19 +438,123 @@ describe('GeneralAgent', () => {
           type: 'default' as const,
         };
 
-        mockState.toolManifestMap = {
-          'file-tool': {
-            api: [{ name: 'fileOperation' }],
-            humanInterventionConfig: [
-              { match: { path: '/Users/project/*' }, policy: 'never' },
-              { policy: 'always' },
-            ] as HumanInterventionConfig,
-            identifier: 'file-tool',
-          },
+        const manifest: BuiltinToolManifest = {
+          api: [
+            {
+              description: 'File operation',
+              humanIntervention: [
+                { match: { path: '/Users/project/*' }, policy: 'never' },
+                { policy: 'always' },
+              ] as HumanInterventionConfig,
+              name: 'fileOperation',
+              parameters: {},
+            },
+          ],
+          identifier: 'file-tool',
+          meta: { title: 'File Tool' },
+          systemRole: '',
         };
 
-        const policy = agent['checkToolIntervention'](toolCall, mockState);
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
         expect(policy).toBe('never');
+      });
+
+      it('should prioritize API-level config over tool-level config', () => {
+        const toolCall = {
+          apiName: 'dangerousApi',
+          arguments: '{}',
+          id: 'call_1',
+          identifier: 'mixed-tool',
+          type: 'default' as const,
+        };
+
+        const manifest: BuiltinToolManifest = {
+          api: [
+            {
+              description: 'Dangerous API',
+              humanIntervention: 'always',
+              name: 'dangerousApi',
+              parameters: {},
+            },
+            {
+              description: 'Safe API',
+              name: 'safeApi',
+              parameters: {},
+            },
+          ],
+          humanIntervention: 'never', // Tool-level default
+          identifier: 'mixed-tool',
+          meta: { title: 'Mixed Tool' },
+          systemRole: '',
+        };
+
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
+        expect(policy).toBe('always'); // API-level should override tool-level
+      });
+
+      it('should fall back to tool-level policy when API has no config', () => {
+        const toolCall = {
+          apiName: 'safeApi',
+          arguments: '{}',
+          id: 'call_1',
+          identifier: 'mixed-tool',
+          type: 'default' as const,
+        };
+
+        const manifest: BuiltinToolManifest = {
+          api: [
+            {
+              description: 'Dangerous API',
+              humanIntervention: 'always',
+              name: 'dangerousApi',
+              parameters: {},
+            },
+            {
+              description: 'Safe API',
+              name: 'safeApi',
+              parameters: {},
+            },
+          ],
+          humanIntervention: 'first', // Tool-level default
+          identifier: 'mixed-tool',
+          meta: { title: 'Mixed Tool' },
+          systemRole: '',
+        };
+
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
+        expect(policy).toBe('first'); // Should use tool-level default
+      });
+
+      it('should support complex API-level rules while tool has simple policy', () => {
+        const toolCall = {
+          apiName: 'bash',
+          arguments: '{"command":"ls:"}',
+          id: 'call_1',
+          identifier: 'bash-tool',
+          type: 'default' as const,
+        };
+
+        const manifest: BuiltinToolManifest = {
+          api: [
+            {
+              description: 'Execute bash command',
+              humanIntervention: [
+                { match: { command: 'ls:*' }, policy: 'never' },
+                { match: { command: 'rm:*' }, policy: 'always' },
+                { policy: 'first' },
+              ] as HumanInterventionConfig,
+              name: 'bash',
+              parameters: {},
+            },
+          ],
+          humanIntervention: 'always', // Tool-level would require always
+          identifier: 'bash-tool',
+          meta: { title: 'Bash Tool' },
+          systemRole: '',
+        };
+
+        const policy = agent['checkToolIntervention'](toolCall, manifest);
+        expect(policy).toBe('never'); // API-level rule should match and return never
       });
     });
 
@@ -469,9 +585,17 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'danger-tool': {
-            api: [{ name: 'dangerousOp' }],
-            humanInterventionConfig: 'always' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Dangerous operation',
+                humanIntervention: 'always',
+                name: 'dangerousOp',
+                parameters: {},
+              },
+            ],
             identifier: 'danger-tool',
+            meta: { title: 'Danger Tool' },
+            systemRole: '',
           },
         };
 
@@ -517,9 +641,17 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'safe-tool': {
-            api: [{ name: 'safeOp' }],
-            humanInterventionConfig: 'never' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Safe operation',
+                name: 'safeOp',
+                parameters: {},
+              },
+            ],
+            humanIntervention: 'never',
             identifier: 'safe-tool',
+            meta: { title: 'Safe Tool' },
+            systemRole: '',
           },
         };
 
@@ -569,14 +701,30 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'danger-tool': {
-            api: [{ name: 'dangerousOp' }],
-            humanInterventionConfig: 'always' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Dangerous operation',
+                humanIntervention: 'always',
+                name: 'dangerousOp',
+                parameters: {},
+              },
+            ],
             identifier: 'danger-tool',
+            meta: { title: 'Danger Tool' },
+            systemRole: '',
           },
           'safe-tool': {
-            api: [{ name: 'safeOp' }],
-            humanInterventionConfig: 'never' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Safe operation',
+                name: 'safeOp',
+                parameters: {},
+              },
+            ],
+            humanIntervention: 'never',
             identifier: 'safe-tool',
+            meta: { title: 'Safe Tool' },
+            systemRole: '',
           },
         };
 
@@ -629,14 +777,30 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'safe-tool-1': {
-            api: [{ name: 'safeOp1' }],
-            humanInterventionConfig: 'never' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Safe operation 1',
+                name: 'safeOp1',
+                parameters: {},
+              },
+            ],
+            humanIntervention: 'never',
             identifier: 'safe-tool-1',
+            meta: { title: 'Safe Tool 1' },
+            systemRole: '',
           },
           'safe-tool-2': {
-            api: [{ name: 'safeOp2' }],
-            humanInterventionConfig: 'never' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Safe operation 2',
+                name: 'safeOp2',
+                parameters: {},
+              },
+            ],
+            humanIntervention: 'never',
             identifier: 'safe-tool-2',
+            meta: { title: 'Safe Tool 2' },
+            systemRole: '',
           },
         };
 
@@ -695,9 +859,17 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'safe-tool': {
-            api: [{ name: 'safeOp' }],
-            humanInterventionConfig: 'never' as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Safe operation',
+                name: 'safeOp',
+                parameters: {},
+              },
+            ],
+            humanIntervention: 'never',
             identifier: 'safe-tool',
+            meta: { title: 'Safe Tool' },
+            systemRole: '',
           },
         };
 
@@ -751,13 +923,21 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'bash-tool': {
-            api: [{ name: 'bash' }],
-            humanInterventionConfig: [
-              { match: { command: 'ls:*' }, policy: 'never' },
-              { match: { command: 'rm:*' }, policy: 'always' },
-              { policy: 'always' },
-            ] as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Execute bash command',
+                humanIntervention: [
+                  { match: { command: 'ls:*' }, policy: 'never' },
+                  { match: { command: 'rm:*' }, policy: 'always' },
+                  { policy: 'always' },
+                ] as HumanInterventionConfig,
+                name: 'bash',
+                parameters: {},
+              },
+            ],
             identifier: 'bash-tool',
+            meta: { title: 'Bash Tool' },
+            systemRole: '',
           },
         };
 
@@ -819,12 +999,20 @@ describe('GeneralAgent', () => {
 
         mockState.toolManifestMap = {
           'bash-tool': {
-            api: [{ name: 'bash' }],
-            humanInterventionConfig: [
-              { match: { command: 'ls:*' }, policy: 'never' },
-              { policy: 'first' },
-            ] as HumanInterventionConfig,
+            api: [
+              {
+                description: 'Execute bash command',
+                humanIntervention: [
+                  { match: { command: 'ls:*' }, policy: 'never' },
+                  { policy: 'first' },
+                ] as HumanInterventionConfig,
+                name: 'bash',
+                parameters: {},
+              },
+            ],
             identifier: 'bash-tool',
+            meta: { title: 'Bash Tool' },
+            systemRole: '',
           },
         };
 

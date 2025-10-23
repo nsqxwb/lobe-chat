@@ -120,10 +120,7 @@ export class AgentRuntime {
         }
 
         // Stop execution if blocked
-        if (
-          currentState.status === 'waiting_for_human_input' ||
-          currentState.status === 'interrupted'
-        ) {
+        if (currentState.status === 'waiting_for_human' || currentState.status === 'interrupted') {
           break;
         }
       }
@@ -492,7 +489,7 @@ export class AgentRuntime {
       const newState = structuredClone(state);
 
       newState.lastModified = new Date().toISOString();
-      newState.status = 'waiting_for_human_input';
+      newState.status = 'waiting_for_human';
       newState.pendingToolsCalling = pendingToolsCalling;
 
       const events: AgentEvent[] = [
@@ -518,7 +515,7 @@ export class AgentRuntime {
       const newState = structuredClone(state);
 
       newState.lastModified = new Date().toISOString();
-      newState.status = 'waiting_for_human_input';
+      newState.status = 'waiting_for_human';
       newState.pendingHumanPrompt = { metadata, prompt };
 
       const events: AgentEvent[] = [
@@ -544,7 +541,7 @@ export class AgentRuntime {
       const newState = structuredClone(state);
 
       newState.lastModified = new Date().toISOString();
-      newState.status = 'waiting_for_human_input';
+      newState.status = 'waiting_for_human';
       newState.pendingHumanSelect = { metadata, multi, options, prompt };
 
       const events: AgentEvent[] = [

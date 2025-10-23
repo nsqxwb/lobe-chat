@@ -396,8 +396,8 @@ describe('AgentRuntimeService', () => {
     });
 
     it('should handle different session statuses', async () => {
-      // Test waiting_for_human_input status
-      const waitingState = { ...mockState, status: 'waiting_for_human_input' };
+      // Test waiting_for_human status
+      const waitingState = { ...mockState, status: 'waiting_for_human' };
       mockCoordinator.loadAgentState.mockResolvedValue(waitingState);
 
       const result = await service.getSessionStatus({
@@ -412,7 +412,7 @@ describe('AgentRuntimeService', () => {
   describe('getPendingInterventions', () => {
     it('should get pending interventions for specific session', async () => {
       const mockState = {
-        status: 'waiting_for_human_input',
+        status: 'waiting_for_human',
         pendingToolsCalling: [{ toolName: 'calculator', args: {} }],
         stepCount: 3,
         lastModified: new Date().toISOString(),
@@ -437,7 +437,7 @@ describe('AgentRuntimeService', () => {
           {
             sessionId: 'test-session-1',
             type: 'tool_approval',
-            status: 'waiting_for_human_input',
+            status: 'waiting_for_human',
             stepCount: 3,
             lastModified: mockState.lastModified,
             userId: 'user-123',
@@ -460,7 +460,7 @@ describe('AgentRuntimeService', () => {
       // Mock states - only first session needs intervention
       mockCoordinator.loadAgentState
         .mockResolvedValueOnce({
-          status: 'waiting_for_human_input',
+          status: 'waiting_for_human',
           pendingHumanPrompt: 'Please confirm',
           stepCount: 2,
           lastModified: new Date().toISOString(),
@@ -479,7 +479,7 @@ describe('AgentRuntimeService', () => {
       expect(result.pendingInterventions[0]).toEqual({
         sessionId: 'session-1',
         type: 'human_prompt',
-        status: 'waiting_for_human_input',
+        status: 'waiting_for_human',
         pendingHumanPrompt: 'Please confirm',
         stepCount: 2,
         lastModified: expect.any(String),
@@ -706,7 +706,7 @@ describe('AgentRuntimeService', () => {
 
       it('should return false when waiting for human input', () => {
         const shouldContinue = (service as any).shouldContinueExecution(
-          { status: 'waiting_for_human_input' },
+          { status: 'waiting_for_human' },
           { phase: 'user_input' },
         );
         expect(shouldContinue).toBe(false);
@@ -787,7 +787,7 @@ describe('AgentRuntimeService', () => {
     describe('calculatePriority', () => {
       it('should return high priority for human input needed', () => {
         const priority = (service as any).calculatePriority({
-          newState: { status: 'waiting_for_human_input' },
+          newState: { status: 'waiting_for_human' },
           events: [],
         });
         expect(priority).toBe('high');

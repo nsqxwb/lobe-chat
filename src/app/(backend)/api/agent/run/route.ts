@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       success: result.success,
       totalCost: result.state.cost?.total || 0,
       totalSteps: result.state.stepCount,
-      waitingForHuman: result.state.status === 'waiting_for_human_input',
+      waitingForHuman: result.state.status === 'waiting_for_human',
     };
 
     log(

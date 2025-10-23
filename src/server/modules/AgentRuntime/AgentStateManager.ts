@@ -367,7 +367,7 @@ export class AgentStateManager {
         if (metadata) {
           switch (metadata.status) {
             case 'running':
-            case 'waiting_for_human_input': {
+            case 'waiting_for_human': {
               stats.activeSessions++;
               break;
             }

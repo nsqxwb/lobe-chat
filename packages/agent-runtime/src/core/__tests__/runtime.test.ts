@@ -369,7 +369,7 @@ describe('AgentRuntime', () => {
           type: 'tool_pending',
         });
 
-        expect(result.newState.status).toBe('waiting_for_human_input');
+        expect(result.newState.status).toBe('waiting_for_human');
         expect(result.newState.pendingToolsCalling).toBeDefined();
       });
 
@@ -396,7 +396,7 @@ describe('AgentRuntime', () => {
           sessionId: 'test-session',
         });
 
-        expect(result.newState.status).toBe('waiting_for_human_input');
+        expect(result.newState.status).toBe('waiting_for_human');
         expect(result.newState.pendingHumanPrompt).toEqual({
           prompt: 'Please provide input',
           metadata: { key: 'value' },
@@ -434,7 +434,7 @@ describe('AgentRuntime', () => {
           sessionId: 'test-session',
         });
 
-        expect(result.newState.status).toBe('waiting_for_human_input');
+        expect(result.newState.status).toBe('waiting_for_human');
       });
     });
 
@@ -1018,7 +1018,7 @@ describe('AgentRuntime', () => {
       result = await runtime.step(result.newState, result.nextContext);
 
       // Now should request human approval
-      expect(result.newState.status).toBe('waiting_for_human_input');
+      expect(result.newState.status).toBe('waiting_for_human');
       expect(result.newState.pendingToolsCalling).toHaveLength(1);
 
       // Step 2: Approve and execute tool call
@@ -1210,7 +1210,7 @@ describe('AgentRuntime', () => {
       expect(agent.tools.safe_tool).toHaveBeenCalled();
 
       // Should be in waiting state (blocked by approval request)
-      expect(result.newState.status).toBe('waiting_for_human_input');
+      expect(result.newState.status).toBe('waiting_for_human');
 
       // Should have pending tool calls
       expect(result.newState.pendingToolsCalling).toHaveLength(1);

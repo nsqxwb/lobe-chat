@@ -340,10 +340,10 @@ export class AgentRuntimeService {
         },
         executionHistory: executionHistory?.slice(0, historyLimit),
         hasError: currentState.status === 'error',
-        isActive: ['running', 'waiting_for_human_input'].includes(currentState.status),
+        isActive: ['running', 'waiting_for_human'].includes(currentState.status),
         isCompleted: currentState.status === 'done',
         metadata: sessionMetadata,
-        needsHumanInput: currentState.status === 'waiting_for_human_input',
+        needsHumanInput: currentState.status === 'waiting_for_human',
         recentEvents: recentEvents?.slice(0, 10),
         sessionId,
         stats,
@@ -404,7 +404,7 @@ export class AgentRuntimeService {
             this.coordinator.getSessionMetadata(session),
           ]);
 
-          if (state?.status === 'waiting_for_human_input') {
+          if (state?.status === 'waiting_for_human') {
             const intervention: any = {
               lastModified: state.lastModified,
               modelRuntimeConfig: metadata?.modelRuntimeConfig,
@@ -617,10 +617,10 @@ export class AgentRuntimeService {
   ) {
     const { humanInput, approvedToolCall, rejectionReason } = intervention;
 
-    if (approvedToolCall && state.status === 'waiting_for_human_input') {
+    if (approvedToolCall && state.status === 'waiting_for_human') {
       // TODO: 实现 approveToolCall 逻辑
       return { newState: state, nextContext: undefined };
-    } else if (rejectionReason && state.status === 'waiting_for_human_input') {
+    } else if (rejectionReason && state.status === 'waiting_for_human') {
       // TODO: 实现 rejectToolCall 逻辑
       return { newState: state, nextContext: undefined };
     } else if (humanInput) {
@@ -639,7 +639,7 @@ export class AgentRuntimeService {
     if (state.status === 'done') return false;
 
     // 需要人工干预
-    if (state.status === 'waiting_for_human_input') return false;
+    if (state.status === 'waiting_for_human') return false;
 
     // 出错了
     if (state.status === 'error') return false;
@@ -685,7 +685,7 @@ export class AgentRuntimeService {
    */
   private calculatePriority(stepResult: any): 'high' | 'normal' | 'low' {
     // 如果需要人工干预，高优先级
-    if (stepResult.newState?.status === 'waiting_for_human_input') {
+    if (stepResult.newState?.status === 'waiting_for_human') {
       return 'high';
     }
 
