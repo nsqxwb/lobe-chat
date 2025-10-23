@@ -682,5 +682,13 @@
     "bps": true,
     "folderMillis": 1760108430562,
     "hash": "ce09b301abb80f6563abc2f526bdd20b4f69bae430f09ba2179b9e3bfec43067"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"message_plugins\" ADD COLUMN \"intervention\" jsonb DEFAULT '{}'::jsonb;"
+    ],
+    "bps": true,
+    "folderMillis": 1761211743848,
+    "hash": "97525423290c2df87df0b0d26c5eaa870a914003a461fbc81bdf14b32ba31a35"
   }
 ]
