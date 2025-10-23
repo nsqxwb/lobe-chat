@@ -1,5 +1,10 @@
-import { AgentInstruction, AgentRuntimeContext, AgentState } from '@lobechat/agent-runtime';
-import { ChatToolPayload, MessageToolCall } from '@lobechat/types';
+import {
+  AgentInstruction,
+  AgentRuntimeContext,
+  AgentState,
+  InterventionChecker,
+} from '@lobechat/agent-runtime';
+import { ChatToolPayload, HumanInterventionPolicy, MessageToolCall } from '@lobechat/types';
 import debug from 'debug';
 
 const log = debug('lobe-server:agent-runtime:general-agent');
@@ -64,10 +69,35 @@ export class GeneralAgent {
 
         // Execute tools if present
         if (payload.hasToolsCalling) {
-          // Use original tool_calls (MessageToolCall[]) instead of transformed toolsCalling
           const toolsCalling = payload.toolsCalling;
 
-          // Return tool calling instructions
+          // Check intervention for all tool calls
+          const toolsNeedingApproval: ChatToolPayload[] = [];
+
+          for (const toolCall of toolsCalling) {
+            const policy = this.checkToolIntervention(toolCall, state);
+
+            // For now, only handle 'always' policy (skip 'first' and 'never')
+            if (policy === 'always') {
+              toolsNeedingApproval.push(toolCall);
+            }
+          }
+
+          // If any tools need approval, request human intervention
+          if (toolsNeedingApproval.length > 0) {
+            log(
+              `[${this.config.sessionId}] Tools requiring approval: %o`,
+              toolsNeedingApproval.map((t) => `${t.identifier}/${t.apiName}`),
+            );
+
+            return {
+              pendingToolsCalling: toolsNeedingApproval as any,
+              reason: 'Tools require human approval',
+              type: 'request_human_approve',
+            };
+          }
+
+          // No intervention needed, proceed with tool execution
           // Use batch execution for multiple tool calls to improve performance
           if (toolsCalling.length > 1) {
             return {
@@ -113,6 +143,56 @@ export class GeneralAgent {
         };
       }
     }
+  }
+
+  /**
+   * Check if a tool call requires human intervention
+   * @param toolCall - Tool call to check
+   * @param state - Current agent state
+   * @returns Intervention policy to apply
+   */
+  private checkToolIntervention(
+    toolCall: ChatToolPayload,
+    state: AgentState,
+  ): HumanInterventionPolicy {
+    // Get tool manifest from state
+    const manifest = state.toolManifestMap[toolCall.identifier];
+
+    // No manifest means no intervention config
+    if (!manifest) {
+      log(`[${this.config.sessionId}] No manifest found for tool: ${toolCall.identifier}`);
+      return 'never';
+    }
+
+    // Get intervention config from manifest
+    const interventionConfig = manifest.humanInterventionConfig;
+
+    // Parse tool arguments
+    let toolArgs: Record<string, any> = {};
+    try {
+      toolArgs = JSON.parse(toolCall.arguments);
+    } catch (error) {
+      log(
+        `[${this.config.sessionId}] Failed to parse tool arguments for ${toolCall.identifier}/${toolCall.apiName}: %o`,
+        error,
+      );
+    }
+
+    // Check intervention using InterventionChecker
+    const policy = InterventionChecker.shouldIntervene({
+      config: interventionConfig,
+      toolArgs,
+      // TODO: Add confirmedHistory support when implementing 'first' policy
+      // confirmedHistory: state.metadata?.confirmedToolCalls || [],
+      // toolKey: InterventionChecker.generateToolKey(toolCall.identifier, toolCall.apiName),
+    });
+
+    log(
+      `[${this.config.sessionId}] Intervention check for ${toolCall.identifier}/${toolCall.apiName}: %s`,
+      policy,
+    );
+
+    return policy;
   }
 
   /**
